@@ -1,18 +1,18 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { toToolError, toToolResult } from "../../mcp/toolResult.js";
+import {
+  ListPaginationInputSchemaShape,
+  ProjectIdSchema
+} from "../shared/mcp/sharedSchemas.js";
+import { toToolError, toToolResult } from "../shared/mcp/toolResult.js";
 import { getIssues } from "./service.js";
 
 const GetIssuesInputSchema = z.object({
-  projectId: z
-    .string()
-    .min(1)
-    .describe("ACC project identifier. A leading 'b.' prefix is accepted."),
-  limit: z.number().int().min(1).max(50).default(10).describe("Maximum number of issues to return."),
-  offset: z.number().int().min(0).default(0).describe("Zero-based issue offset.")
+  projectId: ProjectIdSchema,
+  ...ListPaginationInputSchemaShape
 });
 
-export function registerIssuesTools(server: McpServer) {
+export function registerAccIssuesTools(server: McpServer): void {
   server.registerTool(
     "get_issues",
     {

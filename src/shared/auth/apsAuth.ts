@@ -303,4 +303,10 @@ export async function resetAuthForTests(): Promise<void> {
   await defaultOAuthStateStore.clear();
 }
 
-export { defaultAuthService, defaultTokenCache, defaultOAuthStateStore, MemoryTokenCache, MemoryOAuthStateStore };
+export {
+  defaultAuthService,
+  defaultOAuthStateStore,
+  defaultTokenCache,
+  MemoryOAuthStateStore,
+  MemoryTokenCache
+};

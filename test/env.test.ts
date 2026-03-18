@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { loadEnv } from "../src/config/env.js";
-import { ConfigError } from "../src/utils/errors.js";
+import { loadEnv } from "../src/shared/config/env.js";
+import { ConfigError } from "../src/shared/utils/errors.js";
 
 const baseEnv = {
   APS_CLIENT_ID: "client-id",

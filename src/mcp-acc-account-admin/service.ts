@@ -1,14 +1,14 @@
-import { APS_CONSTRUCTION_ADMIN_BASE_URL } from "../../aps/endpoints.js";
-import { requestApsJson } from "../../aps/client.js";
-import { getConfig, type RegionValue } from "../../config/env.js";
-import type { ListToolResult, ToolWarning } from "../../mcp/toolResult.js";
+import { requestApsJson } from "../shared/aps/client.js";
+import { APS_CONSTRUCTION_ADMIN_BASE_URL } from "../shared/aps/endpoints.js";
+import { getConfig, type RegionValue } from "../shared/config/env.js";
+import type { ListToolResult, ToolWarning } from "../shared/mcp/toolResult.js";
 import {
   extractListRecords,
   normalizeListPagination,
   stripBPrefix,
   toStringArray,
   toStringValue
-} from "../shared/listUtils.js";
+} from "../shared/mcp/listUtils.js";
 import type {
   AccProjectsResponse,
   AccProjectUsersResponse,
@@ -98,7 +98,7 @@ export async function getProjects(input: {
 
   const rawResponse = await requestApsJson<AccProjectsResponse>(url.toString(), {
     headers: buildRegionHeaders(region),
-    serviceName: "accAdmin.getProjects"
+    serviceName: "mcpAccAccountAdmin.getProjects"
   });
 
   const extracted = extractListRecords<RawAccProject>(rawResponse);
@@ -144,7 +144,7 @@ export async function getUsers(input: {
 
   const rawResponse = await requestApsJson<AccProjectUsersResponse>(url.toString(), {
     headers: buildRegionHeaders(region),
-    serviceName: "accAdmin.getUsers"
+    serviceName: "mcpAccAccountAdmin.getUsers"
   });
 
   const extracted = extractListRecords<RawAccProjectUser>(rawResponse);

@@ -1,4 +1,4 @@
-import type { ApsListEnvelope } from "../../aps/models.js";
+import type { ApsListEnvelope } from "../shared/aps/models.js";
 
 export interface RawIssue extends Record<string, unknown> {
   id?: string;

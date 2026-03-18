@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defaultTokenCache, resetAuthForTests } from "../src/auth/apsAuth.js";
-import { resetConfigForTests } from "../src/config/env.js";
-import { getProjects, getUsers } from "../src/modules/accAdmin/service.js";
+import { getProjects, getUsers } from "../src/mcp-acc-account-admin/service.js";
+import { defaultTokenCache, resetAuthForTests } from "../src/shared/auth/apsAuth.js";
+import { resetConfigForTests } from "../src/shared/config/env.js";
 
 function applyBaseEnv(): void {
   process.env.APS_CLIENT_ID = "client-id";

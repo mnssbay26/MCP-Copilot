@@ -1,4 +1,4 @@
-import type { ListToolPagination, ToolWarning } from "../../mcp/toolResult.js";
+import type { ListToolPagination, ToolWarning } from "./toolResult.js";
 
 export function stripBPrefix(value: string): string {
   return value.trim().replace(/^b\./i, "");

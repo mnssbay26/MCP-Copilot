@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { MemoryOAuthStateStore } from "../src/auth/memoryOAuthStateStore.js";
-import { MemoryTokenCache } from "../src/auth/memoryTokenCache.js";
+import { MemoryOAuthStateStore } from "../src/shared/auth/memoryOAuthStateStore.js";
+import { MemoryTokenCache } from "../src/shared/auth/memoryTokenCache.js";
 
 describe("memory caches", () => {
   it("stores and deletes tokens", async () => {

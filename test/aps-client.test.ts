@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApsHttpError } from "../src/utils/errors.js";
-import { requestApsJson } from "../src/aps/client.js";
+import { requestApsJson } from "../src/shared/aps/client.js";
+import { ApsHttpError } from "../src/shared/utils/errors.js";
 
 afterEach(() => {
   vi.useRealTimers();

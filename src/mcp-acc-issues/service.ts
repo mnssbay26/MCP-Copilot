@@ -1,13 +1,13 @@
-import { requestApsJson } from "../../aps/client.js";
-import { APS_CONSTRUCTION_ISSUES_BASE_URL } from "../../aps/endpoints.js";
-import type { ListToolResult, ToolWarning } from "../../mcp/toolResult.js";
+import { requestApsJson } from "../shared/aps/client.js";
+import { APS_CONSTRUCTION_ISSUES_BASE_URL } from "../shared/aps/endpoints.js";
+import type { ListToolResult, ToolWarning } from "../shared/mcp/toolResult.js";
 import {
   extractListRecords,
   normalizeListPagination,
   stripBPrefix,
   toRecord,
   toStringValue
-} from "../shared/listUtils.js";
+} from "../shared/mcp/listUtils.js";
 import type { IssueSummary, IssuesResponse, RawIssue } from "./models.js";
 
 function clampLimit(limit = 10): number {
@@ -80,7 +80,7 @@ export async function getIssues(input: {
   url.searchParams.set("offset", String(offset));
 
   const rawResponse = await requestApsJson<IssuesResponse>(url.toString(), {
-    serviceName: "issues.getIssues"
+    serviceName: "mcpAccIssues.getIssues"
   });
 
   const extracted = extractListRecords<RawIssue>(rawResponse);

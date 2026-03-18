@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
-import { resetAuthForTests } from "../src/auth/apsAuth.js";
-import { createHttpApp } from "../src/bootstrap/httpApp.js";
-import { resetConfigForTests } from "../src/config/env.js";
+import { createCombinedMcpServer } from "../src/index.js";
+import { resetAuthForTests } from "../src/shared/auth/apsAuth.js";
+import { createHttpApp } from "../src/shared/bootstrap/httpApp.js";
+import { resetConfigForTests } from "../src/shared/config/env.js";
 
 function applyBaseEnv(): void {
   process.env.APS_CLIENT_ID = "client-id";
@@ -27,7 +28,9 @@ afterEach(async () => {
 
 describe("createHttpApp", () => {
   it("serves health and auth endpoints", async () => {
-    const app = createHttpApp();
+    const app = createHttpApp({
+      createServer: createCombinedMcpServer
+    });
 
     const healthResponse = await request(app).get("/health");
     const authUrlResponse = await request(app).get("/auth/url");
@@ -44,7 +47,9 @@ describe("createHttpApp", () => {
   });
 
   it("mounts the mcp endpoint", async () => {
-    const app = createHttpApp();
+    const app = createHttpApp({
+      createServer: createCombinedMcpServer
+    });
     const response = await request(app).post("/mcp").send({});
 
     expect(response.status).not.toBe(404);

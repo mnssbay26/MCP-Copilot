@@ -1,29 +1,25 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { RegionSchema } from "../../config/env.js";
-import { toToolError, toToolResult } from "../../mcp/toolResult.js";
+import { RegionSchema } from "../shared/config/env.js";
+import {
+  ListPaginationInputSchemaShape,
+  ProjectIdSchema
+} from "../shared/mcp/sharedSchemas.js";
+import { toToolError, toToolResult } from "../shared/mcp/toolResult.js";
 import { getProjects, getUsers } from "./service.js";
 
-const BaseListInputSchema = {
-  limit: z.number().int().min(1).max(50).default(10).describe("Maximum number of records to return."),
-  offset: z.number().int().min(0).default(0).describe("Zero-based result offset.")
-};
-
 const GetProjectsInputSchema = z.object({
-  ...BaseListInputSchema,
+  ...ListPaginationInputSchemaShape,
   region: RegionSchema.optional().describe("Optional ACC region override.")
 });
 
 const GetUsersInputSchema = z.object({
-  projectId: z
-    .string()
-    .min(1)
-    .describe("ACC project identifier. A leading 'b.' prefix is accepted."),
-  ...BaseListInputSchema,
+  projectId: ProjectIdSchema,
+  ...ListPaginationInputSchemaShape,
   region: RegionSchema.optional().describe("Optional ACC region override.")
 });
 
-export function registerAccAdminTools(server: McpServer) {
+export function registerAccAccountAdminTools(server: McpServer): void {
   server.registerTool(
     "get_projects",
     {

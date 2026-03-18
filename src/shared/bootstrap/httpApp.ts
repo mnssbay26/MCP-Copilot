@@ -1,11 +1,15 @@
 import type { Request, Response } from "express";
 import cors from "cors";
 import express from "express";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { exchangeCodeForToken, getAuthStatus, getAuthorizationUrl } from "../auth/apsAuth.js";
 import { ApsAuthRequiredError, OAuthStateError, TokenRefreshError } from "../utils/errors.js";
-import { createMcpServer } from "../mcp/server.js";
 import { logger } from "../utils/logger.js";
+
+export interface CreateHttpAppOptions {
+  createServer: () => McpServer;
+}
 
 function resolveHttpStatus(error: unknown): number {
   if (error instanceof OAuthStateError) {
@@ -23,7 +27,7 @@ function resolveHttpStatus(error: unknown): number {
   return 500;
 }
 
-export function createHttpApp() {
+export function createHttpApp(options: CreateHttpAppOptions) {
   const app = express();
 
   app.use(cors());
@@ -84,7 +88,7 @@ export function createHttpApp() {
   });
 
   app.all("/mcp", async (req: Request, res: Response) => {
-    const server = createMcpServer();
+    const server = options.createServer();
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined
     });

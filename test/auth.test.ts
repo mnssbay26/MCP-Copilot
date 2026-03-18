@@ -1,15 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  ApsAuthRequiredError
-} from "../src/utils/errors.js";
+import { ApsAuthRequiredError } from "../src/shared/utils/errors.js";
 import {
   createApsAuthService,
   isTokenExpired,
   normalizeTokenResponse
-} from "../src/auth/apsAuth.js";
-import { MemoryOAuthStateStore } from "../src/auth/memoryOAuthStateStore.js";
-import { MemoryTokenCache } from "../src/auth/memoryTokenCache.js";
-import type { AppConfig } from "../src/config/env.js";
+} from "../src/shared/auth/apsAuth.js";
+import { MemoryOAuthStateStore } from "../src/shared/auth/memoryOAuthStateStore.js";
+import { MemoryTokenCache } from "../src/shared/auth/memoryTokenCache.js";
+import type { AppConfig } from "../src/shared/config/env.js";
 
 function createConfig(): AppConfig {
   return {

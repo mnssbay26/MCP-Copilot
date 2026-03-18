@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
-import { createCombinedMcpServer } from "../src/index.js";
+import { createCombinedMcpServer, createRootHttpApp } from "../src/index.js";
 import { resetAuthForTests } from "../src/shared/auth/apsAuth.js";
 import { createHttpApp } from "../src/shared/bootstrap/httpApp.js";
 import { resetConfigForTests } from "../src/shared/config/env.js";
@@ -53,5 +53,13 @@ describe("createHttpApp", () => {
     const response = await request(app).post("/mcp").send({});
 
     expect(response.status).not.toBe(404);
+  });
+
+  it("exposes the smoke validation route through the root app", async () => {
+    const app = createRootHttpApp();
+    const response = await request(app).get("/internal/smoke/projects");
+
+    expect(response.status).toBe(401);
+    expect(response.body.error).toContain("No Autodesk token is cached");
   });
 });

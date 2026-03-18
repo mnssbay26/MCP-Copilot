@@ -91,6 +91,22 @@ The first AWS deployment is intentionally limited:
 
 `get_users` and `get_issues` remain implemented and testable, but they are not the primary focus of the first deployment validation cycle.
 
+## First Validation Flow
+
+Use this sequence for the first deployment validation pass:
+
+1. `npm run build`
+2. `npm test`
+3. `npm run start:http`
+4. Open `GET /auth/url`
+5. Complete the Autodesk login flow
+6. Open `GET /auth/status` and confirm `loggedIn=true`
+7. Run `npm run smoke:projects`
+
+The first validation target is auth plus `get_projects` only. `get_users` and `get_issues` remain implemented, but they are not required for the initial deployment validation.
+
+Because the current token cache is in-memory, keep the HTTP server process running while you complete the auth flow and run `npm run smoke:projects`. The smoke script validates against the live server so it can reuse the same cached Autodesk session.
+
 ## Current Limitations
 
 - The in-memory `TokenCache` is not safe for multi-task ECS deployments.

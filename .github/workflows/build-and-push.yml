@@ -21,11 +21,9 @@ jobs:
   build-and-deploy:
     name: Build and Deploy
     runs-on: ubuntu-latest
-    environment: dev-156041440121
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -35,10 +33,9 @@ jobs:
           role-session-name: github-${{ github.run_id }}
 
       - name: Login to Amazon ECR
-        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build, tag, and push image to Amazon ECR
+      - name: Build, tag, and push image
         id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -54,11 +51,6 @@ jobs:
             --task-definition $ECS_TASK_DEFINITION \
             --query taskDefinition > task-definition.json
 
-      - name: Install jq
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y jq
-
       - name: Clean task definition
         run: |
           jq 'del(
@@ -71,7 +63,7 @@ jobs:
             .registeredBy
           )' task-definition.json > task-definition-clean.json
 
-      - name: Render new ECS task definition
+      - name: Render new task definition
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:

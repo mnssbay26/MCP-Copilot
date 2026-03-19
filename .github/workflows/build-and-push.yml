@@ -1,8 +1,8 @@
-name: Build and Push to ECR
+name: Deploy MCP to AWS
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -10,31 +10,79 @@ permissions:
   contents: read
 
 env:
-  AWS_REGION: ${{ vars.AWS_REGION }}
-  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: mcp-copilot
+  ECS_CLUSTER: mcp-copilot-dev
+  ECS_SERVICE: mcp-copilot-service
+  ECS_TASK_DEFINITION: mcp-copilot
+  CONTAINER_NAME: mcp-copilot
 
 jobs:
-  build-and-push:
+  build-and-deploy:
+    name: Build and Deploy
     runs-on: ubuntu-latest
+    environment: dev-156041440121
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v5
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
+          role-session-name: ${{ github.run_id }}
 
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build, tag, and push image to ECR
+      - name: Build, tag, and push image to Amazon ECR
+        id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: latest
+          IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Download task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition $ECS_TASK_DEFINITION \
+            --query taskDefinition > task-definition.json
+
+      - name: Install jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+      - name: Clean task definition
+        run: |
+          jq 'del(
+            .taskDefinitionArn,
+            .revision,
+            .status,
+            .requiresAttributes,
+            .compatibilities,
+            .registeredAt,
+            .registeredBy
+          )' task-definition.json > task-definition-clean.json
+
+      - name: Fill in new image in ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition-clean.json
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ steps.build-image.outputs.image }}
+
+      - name: Deploy ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true

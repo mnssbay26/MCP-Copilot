@@ -19,4 +19,4 @@ COPY --from=builder /app/dist ./dist
 
 EXPOSE 3000
 
-CMD ["node", "dist/index.js", "--http"]
+CMD ["node", "dist/src/index.js", "--http"]

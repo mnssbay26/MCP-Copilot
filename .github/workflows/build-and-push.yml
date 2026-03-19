@@ -54,6 +54,7 @@ jobs:
             --task-definition $ECS_TASK_DEFINITION \
             --query taskDefinition > task-definition.json
 
+      
       - name: Clean task definition
         run: |
           jq 'del(
@@ -63,8 +64,10 @@ jobs:
             .requiresAttributes,
             .compatibilities,
             .registeredAt,
-            .registeredBy
+            .registeredBy,
+            .enableFaultInjection
           )' task-definition.json > task-definition-clean.json
+
 
       - name: Render new task definition
         id: task-def

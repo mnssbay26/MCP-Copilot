@@ -144,23 +144,16 @@ function registerSmokeRoutes(app: Express): void {
   });
 }
 
-export function createRootHttpApp(): Express {
-  const app = createHttpApp({
-    createServer: createCombinedMcpServer
-  });
-
-  app.use(healthRouter)
-
-  // 👇 ADICIÓN: publica /.well-known/mcp.json desde tu servidor
+export function createRootHttpApp() {
+  const app = createHttpApp({ createServer: createCombinedMcpServer });
+  app.use(healthRouter);            
   app.use(wellKnownRouter);
   app.use(mcpRouter);
   app.use(mcpGatewayRouter);
-
-  // Rutas de validación ya existentes
   registerSmokeRoutes(app);
-
   return app;
 }
+
 
 async function runStdioTransport(): Promise<void> {
   await runStdioServer({

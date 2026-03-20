@@ -26,6 +26,7 @@ import mcpRouter from "./http/routes/mcpServerHttp.js";
  */
 import wellKnownRouter from "./http/routes/wellKnown.js";
 import mcpGatewayRouter from "./http/routes/mcpHttpGateway.js";
+import healthRouter from "./http/routes/health.js";
 // import wellKnownRouter from "./http/routers/wellKnown.js"; // <-- usa esta si tu carpeta es "routers"
 
 const SMOKE_PROJECT_LIMIT = 5;
@@ -147,6 +148,8 @@ export function createRootHttpApp(): Express {
   const app = createHttpApp({
     createServer: createCombinedMcpServer
   });
+
+  app.use(healthRouter)
 
   // 👇 ADICIÓN: publica /.well-known/mcp.json desde tu servidor
   app.use(wellKnownRouter);

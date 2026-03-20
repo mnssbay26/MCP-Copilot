@@ -17,6 +17,14 @@ import {
 } from "./shared/utils/errors.js";
 import { logger } from "./shared/utils/logger.js";
 
+/**
+ * 👇 ADICIÓN: router para exponer /.well-known/mcp.json
+ * Si guardaste el archivo en src/http/routers/wellKnown.ts,
+ * cambia la línea de importación por la versión comentada.
+ */
+import wellKnownRouter from "./http/routes/wellKnown.js";
+// import wellKnownRouter from "./http/routers/wellKnown.js"; // <-- usa esta si tu carpeta es "routers"
+
 const SMOKE_PROJECT_LIMIT = 5;
 
 function resolveTransport(defaultTransport: TransportMode): TransportMode {
@@ -137,6 +145,10 @@ export function createRootHttpApp(): Express {
     createServer: createCombinedMcpServer
   });
 
+  // 👇 ADICIÓN: publica /.well-known/mcp.json desde tu servidor
+  app.use(wellKnownRouter);
+
+  // Rutas de validación ya existentes
   registerSmokeRoutes(app);
 
   return app;

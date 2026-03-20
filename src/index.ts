@@ -25,6 +25,7 @@ import mcpRouter from "./http/routes/mcpServerHttp.js";
  * cambia la línea de importación por la versión comentada.
  */
 import wellKnownRouter from "./http/routes/wellKnown.js";
+import mcpGatewayRouter from "./http/routes/mcpHttpGateway.js";
 // import wellKnownRouter from "./http/routers/wellKnown.js"; // <-- usa esta si tu carpeta es "routers"
 
 const SMOKE_PROJECT_LIMIT = 5;
@@ -150,6 +151,7 @@ export function createRootHttpApp(): Express {
   // 👇 ADICIÓN: publica /.well-known/mcp.json desde tu servidor
   app.use(wellKnownRouter);
   app.use(mcpRouter);
+  app.use(mcpGatewayRouter);
 
   // Rutas de validación ya existentes
   registerSmokeRoutes(app);

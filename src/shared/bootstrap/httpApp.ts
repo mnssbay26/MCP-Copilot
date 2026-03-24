@@ -3,8 +3,16 @@ import cors from "cors";
 import express from "express";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { exchangeCodeForToken, getAuthStatus, getAuthorizationUrl } from "../auth/apsAuth.js";
-import { ApsAuthRequiredError, OAuthStateError, TokenRefreshError } from "../utils/errors.js";
+import {
+  exchangeCodeForToken,
+  getAuthStatus,
+  getAuthorizationUrl
+} from "../auth/apsAuth.js";
+import {
+  ApsAuthRequiredError,
+  OAuthStateError,
+  TokenRefreshError
+} from "../utils/errors.js";
 import { logger } from "../utils/logger.js";
 
 export interface CreateHttpAppOptions {
@@ -25,6 +33,17 @@ function resolveHttpStatus(error: unknown): number {
   }
 
   return 500;
+}
+
+function sendMethodNotAllowed(res: Response): void {
+  res.status(405).json({
+    jsonrpc: "2.0",
+    error: {
+      code: -32000,
+      message: "Method not allowed."
+    },
+    id: null
+  });
 }
 
 export function createHttpApp(options: CreateHttpAppOptions) {
@@ -73,6 +92,7 @@ export function createHttpApp(options: CreateHttpAppOptions) {
 
     try {
       const token = await exchangeCodeForToken(code, state);
+
       res
         .status(200)
         .type("html")
@@ -87,10 +107,16 @@ export function createHttpApp(options: CreateHttpAppOptions) {
     }
   });
 
-  app.all("/mcp", async (req: Request, res: Response) => {
+  app.post("/mcp", async (req: Request, res: Response) => {
+    const rpcMethod =
+      typeof req.body?.method === "string" ? req.body.method : "<unknown>";
+
+    logger.info(`Incoming MCP request: ${req.method} /mcp [${rpcMethod}]`);
+
     const server = options.createServer();
     const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: undefined
+      sessionIdGenerator: undefined,
+      enableJsonResponse: true
     });
 
     res.on("close", () => {
@@ -103,6 +129,7 @@ export function createHttpApp(options: CreateHttpAppOptions) {
       await transport.handleRequest(req, res, req.body);
     } catch (error) {
       logger.error("MCP HTTP request failed.", error);
+
       if (!res.headersSent) {
         res.status(500).json({
           jsonrpc: "2.0",
@@ -114,6 +141,14 @@ export function createHttpApp(options: CreateHttpAppOptions) {
         });
       }
     }
+  });
+
+  app.get("/mcp", (_req: Request, res: Response) => {
+    sendMethodNotAllowed(res);
+  });
+
+  app.delete("/mcp", (_req: Request, res: Response) => {
+    sendMethodNotAllowed(res);
   });
 
   return app;

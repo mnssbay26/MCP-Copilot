@@ -22,12 +22,21 @@ import type { OAuthStateStore } from "./oauthStateStore.js";
 import type { TokenCache } from "./tokenCache.js";
 
 const DEFAULT_SESSION_KEY = "default";
+const DEFAULT_AUTH_SCOPES = ["data:read", "data:write", "data:create", "account:read"];
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 const EXPIRY_SKEW_MS = 60 * 1000;
 
 function createBasicAuthHeader(config: AppConfig): string {
   const value = Buffer.from(`${config.apsClientId}:${config.apsClientSecret}`).toString("base64");
   return `Basic ${value}`;
+}
+
+function resolveRequestedScopes(config: AppConfig): string[] {
+  const scopes = Array.isArray(config.apsScopes)
+    ? config.apsScopes.map((value) => value.trim()).filter(Boolean)
+    : [];
+
+  return scopes.length > 0 ? [...new Set(scopes)] : [...DEFAULT_AUTH_SCOPES];
 }
 
 function normalizeScopes(rawScope: string | string[] | undefined, fallback: string[]): string[] {
@@ -140,34 +149,35 @@ export function createApsAuthService(options: CreateApsAuthServiceOptions): ApsA
   const api: ApsAuthService = {
     async getAuthorizationUrl(sessionKey = DEFAULT_SESSION_KEY) {
       const config = options.getConfig();
+      const requestedScopes = resolveRequestedScopes(config);
       const { verifier, challenge } = createPkcePair();
       const state = crypto.randomUUID();
       const now = Date.now();
-
+    
       await options.stateStore.set({
         state,
         codeVerifier: verifier,
         redirectUri: config.apsCallbackUrl,
-        scopes: config.apsScopes,
+        scopes: requestedScopes,
         sessionKey,
         createdAt: now,
         expiresAt: now + OAUTH_STATE_TTL_MS
       });
-
+    
       const url = new URL(APS_OAUTH_AUTHORIZE_URL);
       url.searchParams.set("response_type", "code");
       url.searchParams.set("client_id", config.apsClientId);
       url.searchParams.set("redirect_uri", config.apsCallbackUrl);
-      url.searchParams.set("scope", config.apsScopes.join(" "));
+      url.searchParams.set("scope", requestedScopes.join(" "));
       url.searchParams.set("state", state);
       url.searchParams.set("code_challenge", challenge);
       url.searchParams.set("code_challenge_method", "S256");
-
+    
       return {
         authorizationUrl: url.toString(),
         state,
         redirectUri: config.apsCallbackUrl,
-        scope: config.apsScopes.join(" "),
+        scope: requestedScopes.join(" "),
         sessionKey,
         expiresAt: new Date(now + OAUTH_STATE_TTL_MS).toISOString()
       };
@@ -203,11 +213,16 @@ export function createApsAuthService(options: CreateApsAuthServiceOptions): ApsA
           "Cached Autodesk token is expired and does not include a refresh token."
         );
       }
+      //comment
+      const requestedScopes = resolveRequestedScopes(config);
 
       const body = new URLSearchParams();
       body.set("grant_type", "refresh_token");
       body.set("refresh_token", cachedToken.refreshToken);
-      body.set("scope", cachedToken.scope.join(" ") || config.apsScopes.join(" "));
+      body.set(
+        "scope",
+        cachedToken.scope.join(" ") || requestedScopes.join(" ")
+      );
 
       const rawToken = await requestToken(config, body, fetchImpl);
       const refreshedToken = normalizeTokenResponse(rawToken, cachedToken.scope);

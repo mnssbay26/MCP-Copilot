@@ -173,6 +173,12 @@ export function createApsAuthService(options: CreateApsAuthServiceOptions): ApsA
       url.searchParams.set("code_challenge", challenge);
       url.searchParams.set("code_challenge_method", "S256");
     
+      console.log("APS AUTH DEBUG", {
+        requestedScopes,
+        joinedScopes: requestedScopes.join(" "),
+        authorizationUrl: url.toString()
+      });
+      
       return {
         authorizationUrl: url.toString(),
         state,

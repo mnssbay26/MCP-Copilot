@@ -75,7 +75,7 @@ export async function requestApsJson<TResponse = unknown>(
   options: ApsRequestOptions = {}
 ): Promise<TResponse> {
   const fetchImpl = options.fetchImpl ?? fetch;
-  const token = options.token ?? (await getValidAccessToken());
+  const token = options.token ?? (await getValidAccessToken(options.sessionKey));
   const method = options.method ?? "GET";
   const retries = Math.max(0, options.retries ?? DEFAULT_RETRIES);
   const timeoutMs = Math.max(1_000, options.timeoutMs ?? DEFAULT_TIMEOUT_MS);

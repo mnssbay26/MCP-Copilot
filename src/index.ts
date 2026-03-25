@@ -4,7 +4,11 @@ import type { Express } from "express";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { getProjects } from "./mcp-acc-account-admin/service.js";
 import { registerAccAccountAdminTools } from "./mcp-acc-account-admin/tools.js";
+import { registerAccAssetsTools } from "./mcp-acc-assets/tools.js";
 import { registerAccIssuesTools } from "./mcp-acc-issues/tools.js";
+import { registerAccRfisTools } from "./mcp-acc-rfis/tools.js";
+import { registerAccSheetsTools } from "./mcp-acc-sheets/tools.js";
+import { registerAccSubmittalsTools } from "./mcp-acc-submittals/tools.js";
 import { getAuthStatus } from "./shared/auth/apsAuth.js";
 import { createHttpApp } from "./shared/bootstrap/httpApp.js";
 import { runStdioServer } from "./shared/bootstrap/stdio.js";
@@ -61,7 +65,11 @@ export function createCombinedMcpServer(): McpServer {
   });
   registerApsAuthTools(server);
   registerAccAccountAdminTools(server);
+  registerAccAssetsTools(server);
   registerAccIssuesTools(server);
+  registerAccSheetsTools(server);
+  registerAccRfisTools(server);
+  registerAccSubmittalsTools(server);
 
   return server;
 }

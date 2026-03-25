@@ -45,7 +45,6 @@ export function registerApsAuthTools(server: McpServer): void {
             ok: true,
             action: "authenticate_with_autodesk",
             authStartUrl,
-            rawAuthorizationUrl: result.authorizationUrl,
             redirectUri: result.redirectUri,
             scope: result.scope,
             sessionKey: result.sessionKey,

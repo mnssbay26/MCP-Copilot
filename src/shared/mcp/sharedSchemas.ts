@@ -20,3 +20,8 @@ export const ProjectIdSchema = z
   .string()
   .min(1)
   .describe("ACC project identifier. A leading 'b.' prefix is accepted.");
+
+export const SessionKeySchema = z
+  .string()
+  .min(1)
+  .describe("Optional session key used to isolate Autodesk auth per user/session.");

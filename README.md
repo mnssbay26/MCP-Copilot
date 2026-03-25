@@ -10,7 +10,11 @@ The current implementation supports:
 - Replaceable token and OAuth-state cache abstractions
 - A reusable APS HTTP client
 - Account admin / project-related MCP logic
+- Assets reporting MCP logic
 - Issues MCP logic
+- Sheets lookup MCP logic
+- RFIs reporting MCP logic
+- Submittals reporting MCP logic
 - HTTP transport for ECS and stdio fallback for local MCP usage
 
 ## Architecture Overview
@@ -19,7 +23,11 @@ The repository is organized around reusable infrastructure and domain-specific M
 
 - `src/shared` contains reusable auth, config, APS client, tool output helpers, and transport bootstrapping.
 - `src/mcp-acc-account-admin` contains project and project-user logic.
+- `src/mcp-acc-assets` contains read-only asset summaries and report logic.
 - `src/mcp-acc-issues` contains issues-specific logic.
+- `src/mcp-acc-rfis` contains read-only RFI summaries, filtered lookup, and report logic.
+- `src/mcp-acc-sheets` contains read-only sheet lookup, summary, and ACC-link logic.
+- `src/mcp-acc-submittals` contains read-only submittal summaries, filtered lookup, and report logic.
 - `src/index.ts` creates the combined server used by the current root runtime while preserving separation between MCP domains.
 
 ## Folder Structure
@@ -39,7 +47,31 @@ src/
     server.ts
     service.ts
     tools.ts
+  mcp-acc-assets/
+    index.ts
+    models.ts
+    server.ts
+    service.ts
+    tools.ts
   mcp-acc-issues/
+    index.ts
+    models.ts
+    server.ts
+    service.ts
+    tools.ts
+  mcp-acc-rfis/
+    index.ts
+    models.ts
+    server.ts
+    service.ts
+    tools.ts
+  mcp-acc-sheets/
+    index.ts
+    models.ts
+    server.ts
+    service.ts
+    tools.ts
+  mcp-acc-submittals/
     index.ts
     models.ts
     server.ts
@@ -78,8 +110,23 @@ Example values are in [`./.env.example`](./.env.example).
 - `get_projects`
 - `get_users`
 - `get_issues`
+- `get_assets_summary`
+- `get_assets_by_category`
+- `get_assets_by_status`
+- `get_assets_report`
+- `find_sheets`
+- `get_sheet_summary`
+- `get_sheet_link`
+- `get_rfis_summary`
+- `get_rfis_by_type`
+- `get_rfis_report`
+- `find_rfis`
+- `get_submittals_summary`
+- `get_submittals_by_spec`
+- `get_submittals_report`
+- `find_submittals`
 
-All three tools remain available in the codebase. The current refactor does not remove or rewrite them.
+These tools are read-only and return curated summary/report payloads instead of raw APS module dumps. The existing auth, projects, users, and issues behavior remains in place.
 
 ## First Deployment Scope
 

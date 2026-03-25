@@ -3,6 +3,7 @@ export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 export interface ApsRequestOptions {
   method?: HttpMethod;
   token?: string;
+  sessionKey?: string;
   headers?: Record<string, string>;
   body?: unknown;
   timeoutMs?: number;

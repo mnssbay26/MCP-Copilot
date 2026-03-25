@@ -162,7 +162,7 @@ export function createApsAuthService(options: CreateApsAuthServiceOptions): ApsA
 
       const nonce = crypto.randomUUID();
     
-      const url = new URL("https://developer.api.autodesk.com/authentication/v2/authorize");
+      const url = new URL(APS_OAUTH_AUTHORIZE_URL);
       url.searchParams.set("response_type", "code");
       url.searchParams.set("client_id", config.apsClientId);
       url.searchParams.set("redirect_uri", config.apsCallbackUrl);
@@ -170,12 +170,6 @@ export function createApsAuthService(options: CreateApsAuthServiceOptions): ApsA
       url.searchParams.set("state", state);
       url.searchParams.set("code_challenge", challenge);
       url.searchParams.set("code_challenge_method", "S256");
-    
-      console.log("APS AUTH DEBUG", {
-        requestedScopes,
-        joinedScopes: requestedScopes.join(" "),
-        authorizationUrl: url.toString()
-      });
 
       return {
         authorizationUrl: url.toString(),

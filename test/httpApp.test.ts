@@ -35,6 +35,7 @@ describe("createHttpApp", () => {
     const healthResponse = await request(app).get("/health");
     const authUrlResponse = await request(app).get("/auth/url");
     const authStatusResponse = await request(app).get("/auth/status");
+    const authStartResponse = await request(app).get("/auth/start").redirects(0);
     const callbackResponse = await request(app).get("/auth/callback");
 
     expect(healthResponse.status).toBe(200);
@@ -43,6 +44,10 @@ describe("createHttpApp", () => {
     expect(authUrlResponse.body.authorizationUrl).toContain("developer.api.autodesk.com");
     expect(authStatusResponse.status).toBe(200);
     expect(authStatusResponse.body.loggedIn).toBe(false);
+    expect(authStartResponse.status).toBe(302);
+    expect(authStartResponse.headers.location).toContain(
+      "developer.api.autodesk.com/authentication/v2/authorize"
+    );
     expect(callbackResponse.status).toBe(400);
   });
 

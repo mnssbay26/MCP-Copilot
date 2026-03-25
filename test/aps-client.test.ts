@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { requestApsJson } from "../src/shared/aps/client.js";
+import { defaultTokenCache, resetAuthForTests } from "../src/shared/auth/apsAuth.js";
 import { ApsHttpError } from "../src/shared/utils/errors.js";
 
-afterEach(() => {
+afterEach(async () => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
+  await resetAuthForTests();
 });
 
 describe("requestApsJson", () => {
@@ -98,5 +101,34 @@ describe("requestApsJson", () => {
     const expectation = expect(requestPromise).rejects.toBeInstanceOf(ApsHttpError);
     await vi.advanceTimersByTimeAsync(1_000);
     await expectation;
+  });
+
+  it("uses the session-specific Autodesk token when sessionKey is provided", async () => {
+    await defaultTokenCache.set("session-a", {
+      accessToken: "session-token",
+      refreshToken: "refresh-token",
+      tokenType: "Bearer",
+      scope: ["data:read"],
+      obtainedAt: Date.now(),
+      expiresAt: Date.now() + 300_000
+    });
+
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      })
+    );
+
+    await requestApsJson("https://example.test/session", {
+      sessionKey: "session-a",
+      fetchImpl,
+      serviceName: "test"
+    });
+
+    const [, init] = fetchImpl.mock.calls[0];
+    const headers = init?.headers as Record<string, string>;
+
+    expect(headers.Authorization).toBe("Bearer session-token");
   });
 });

@@ -163,13 +163,17 @@ export function createApsAuthService(options: CreateApsAuthServiceOptions): ApsA
         createdAt: now,
         expiresAt: now + OAUTH_STATE_TTL_MS
       });
+
+      const nonce = crypto.randomUUID();
     
-      const url = new URL(APS_OAUTH_AUTHORIZE_URL);
+      const url = new URL("https://developer.api.autodesk.com/authentication/v2/authorize");
       url.searchParams.set("response_type", "code");
       url.searchParams.set("client_id", config.apsClientId);
       url.searchParams.set("redirect_uri", config.apsCallbackUrl);
       url.searchParams.set("scope", requestedScopes.join(" "));
       url.searchParams.set("state", state);
+      url.searchParams.set("nonce", nonce);
+      url.searchParams.set("prompt", "login");
       url.searchParams.set("code_challenge", challenge);
       url.searchParams.set("code_challenge_method", "S256");
     

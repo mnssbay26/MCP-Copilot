@@ -79,20 +79,20 @@ export function createHttpApp(options: CreateHttpAppOptions) {
     }
   });
 
-  app.get("/auth/callback", async (req, res) => {
+  app.get(["/auth/callback", "/aps/callback"], async (req, res) => {
     const code = typeof req.query.code === "string" ? req.query.code : undefined;
     const state = typeof req.query.state === "string" ? req.query.state : undefined;
-
+  
     if (!code || !state) {
       res.status(400).json({
         error: "Missing required query parameters: code and state."
       });
       return;
     }
-
+  
     try {
       const token = await exchangeCodeForToken(code, state);
-
+  
       res
         .status(200)
         .type("html")

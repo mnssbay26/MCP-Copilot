@@ -41,7 +41,7 @@ export interface AppConfig {
 
 function parseScopes(rawScopes: string): string[] {
   const scopes = rawScopes
-    .replace(/['",]/g, " ")
+    .replace(/[+'",]/g, " ")
     .split(/\s+/)
     .map((value) => value.trim())
     .filter(Boolean);

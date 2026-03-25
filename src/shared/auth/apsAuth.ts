@@ -168,8 +168,6 @@ export function createApsAuthService(options: CreateApsAuthServiceOptions): ApsA
       url.searchParams.set("redirect_uri", config.apsCallbackUrl);
       url.searchParams.set("scope", requestedScopes.join(" "));
       url.searchParams.set("state", state);
-      url.searchParams.set("nonce", nonce);
-      url.searchParams.set("prompt", "login");
       url.searchParams.set("code_challenge", challenge);
       url.searchParams.set("code_challenge_method", "S256");
     
@@ -178,7 +176,7 @@ export function createApsAuthService(options: CreateApsAuthServiceOptions): ApsA
         joinedScopes: requestedScopes.join(" "),
         authorizationUrl: url.toString()
       });
-      
+
       return {
         authorizationUrl: url.toString(),
         state,

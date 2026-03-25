@@ -79,6 +79,23 @@ export function createHttpApp(options: CreateHttpAppOptions) {
     }
   });
 
+  app.get("/auth/start", async (req, res) => {
+    try {
+      const sessionKey =
+        typeof req.query.sessionKey === "string" && req.query.sessionKey.trim()
+          ? req.query.sessionKey.trim()
+          : undefined;
+  
+      const authUrl = await getAuthorizationUrl(sessionKey);
+      res.redirect(302, authUrl.authorizationUrl);
+    } catch (error) {
+      logger.error("Failed to start Autodesk auth flow.", error);
+      res.status(resolveHttpStatus(error)).json({
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
   app.get(["/auth/callback", "/aps/callback"], async (req, res) => {
     const code = typeof req.query.code === "string" ? req.query.code : undefined;
     const state = typeof req.query.state === "string" ? req.query.state : undefined;

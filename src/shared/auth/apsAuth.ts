@@ -31,12 +31,8 @@ function createBasicAuthHeader(config: AppConfig): string {
   return `Basic ${value}`;
 }
 
-function resolveRequestedScopes(config: AppConfig): string[] {
-  const scopes = Array.isArray(config.apsScopes)
-    ? config.apsScopes.map((value) => value.trim()).filter(Boolean)
-    : [];
-
-  return scopes.length > 0 ? [...new Set(scopes)] : [...DEFAULT_AUTH_SCOPES];
+function resolveRequestedScopes(): string[] {
+  return [...DEFAULT_AUTH_SCOPES];
 }
 
 function normalizeScopes(rawScope: string | string[] | undefined, fallback: string[]): string[] {
@@ -149,7 +145,7 @@ export function createApsAuthService(options: CreateApsAuthServiceOptions): ApsA
   const api: ApsAuthService = {
     async getAuthorizationUrl(sessionKey = DEFAULT_SESSION_KEY) {
       const config = options.getConfig();
-      const requestedScopes = resolveRequestedScopes(config);
+      const requestedScopes = resolveRequestedScopes();
       const { verifier, challenge } = createPkcePair();
       const state = crypto.randomUUID();
       const now = Date.now();
@@ -218,7 +214,7 @@ export function createApsAuthService(options: CreateApsAuthServiceOptions): ApsA
         );
       }
       //comment
-      const requestedScopes = resolveRequestedScopes(config);
+      const requestedScopes = resolveRequestedScopes();
 
       const body = new URLSearchParams();
       body.set("grant_type", "refresh_token");

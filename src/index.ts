@@ -18,6 +18,7 @@ import {
 import { logger } from "./shared/utils/logger.js";
 
 import mcpRouter from "./http/routes/mcpServerHttp.js";
+import { registerApsAuthTools } from "./mcp-auth/tools.js";
 
 /**
  * 👇 ADICIÓN: router para exponer /.well-known/mcp.json
@@ -58,7 +59,7 @@ export function createCombinedMcpServer(): McpServer {
     name: "autodesk-mcp-foundation",
     version: "0.1.0"
   });
-
+  registerApsAuthTools(server);
   registerAccAccountAdminTools(server);
   registerAccIssuesTools(server);
 

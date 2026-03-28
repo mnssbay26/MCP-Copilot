@@ -5,6 +5,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { getProjects } from "./mcp-acc-account-admin/service.js";
 import { registerAccAccountAdminTools } from "./mcp-acc-account-admin/tools.js";
 import { registerAccAssetsTools } from "./mcp-acc-assets/tools.js";
+import { registerAccFormsTools } from "./mcp-acc-forms/tools.js";
 import { registerAccIssuesTools } from "./mcp-acc-issues/tools.js";
 import { registerAccRfisTools } from "./mcp-acc-rfis/tools.js";
 import { registerAccSheetsTools } from "./mcp-acc-sheets/tools.js";
@@ -66,6 +67,7 @@ export function createCombinedMcpServer(): McpServer {
   registerApsAuthTools(server);
   registerAccAccountAdminTools(server);
   registerAccAssetsTools(server);
+  registerAccFormsTools(server);
   registerAccIssuesTools(server);
   registerAccSheetsTools(server);
   registerAccRfisTools(server);

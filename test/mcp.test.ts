@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { registerAccAccountAdminTools } from "../src/mcp-acc-account-admin/tools.js";
 import { registerAccAssetsTools } from "../src/mcp-acc-assets/tools.js";
+import { registerAccFormsTools } from "../src/mcp-acc-forms/tools.js";
 import { registerAccIssuesTools } from "../src/mcp-acc-issues/tools.js";
 import { registerAccRfisTools } from "../src/mcp-acc-rfis/tools.js";
 import { registerAccSheetsTools } from "../src/mcp-acc-sheets/tools.js";
@@ -16,7 +17,7 @@ describe("registerTools", () => {
     registerAccAccountAdminTools(server as never);
 
     const toolNames = registerTool.mock.calls.map((call) => call[0]).sort();
-    expect(toolNames).toEqual(["get_projects", "get_users"]);
+    expect(toolNames).toEqual(["get_project_companies", "get_projects", "get_users"]);
     expect(registerTool.mock.calls[0]?.[1]).toHaveProperty("inputSchema");
   });
 
@@ -94,5 +95,17 @@ describe("registerTools", () => {
       "get_submittals_report",
       "get_submittals_summary"
     ]);
+  });
+
+  it("registers the forms tools", () => {
+    const registerTool = vi.fn();
+    const server = {
+      registerTool
+    };
+
+    registerAccFormsTools(server as never);
+
+    const toolNames = registerTool.mock.calls.map((call) => call[0]).sort();
+    expect(toolNames).toEqual(["find_forms", "get_forms_report", "get_forms_summary"]);
   });
 });

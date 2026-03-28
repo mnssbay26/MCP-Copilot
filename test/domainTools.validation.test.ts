@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
+import { registerAccAccountAdminTools } from "../src/mcp-acc-account-admin/tools.js";
 import { registerAccAssetsTools } from "../src/mcp-acc-assets/tools.js";
+import { registerAccFormsTools } from "../src/mcp-acc-forms/tools.js";
 import { registerAccRfisTools } from "../src/mcp-acc-rfis/tools.js";
 import { registerAccSheetsTools } from "../src/mcp-acc-sheets/tools.js";
 import { registerAccSubmittalsTools } from "../src/mcp-acc-submittals/tools.js";
@@ -16,6 +18,13 @@ function getHandler(
 }
 
 describe("domain tool validation", () => {
+  it("rejects invalid project-companies input", async () => {
+    const handler = getHandler(registerAccAccountAdminTools, "get_project_companies");
+    const response = await handler({ projectId: "" });
+
+    expect(response.isError).toBe(true);
+  });
+
   it("rejects invalid assets input", async () => {
     const handler = getHandler(registerAccAssetsTools, "get_assets_summary");
     const response = await handler({ projectId: "" });
@@ -39,6 +48,13 @@ describe("domain tool validation", () => {
 
   it("rejects invalid submittals input", async () => {
     const handler = getHandler(registerAccSubmittalsTools, "get_submittals_summary");
+    const response = await handler({ projectId: "" });
+
+    expect(response.isError).toBe(true);
+  });
+
+  it("rejects invalid forms input", async () => {
+    const handler = getHandler(registerAccFormsTools, "get_forms_summary");
     const response = await handler({ projectId: "" });
 
     expect(response.isError).toBe(true);

@@ -2,7 +2,12 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { ProjectIdSchema, SessionKeySchema } from "../shared/mcp/sharedSchemas.js";
 import { toToolError, toToolResult } from "../shared/mcp/toolResult.js";
-import { findForms, getFormsReport, getFormsSummary } from "./service.js";
+import {
+  exportFormsCsv,
+  findForms,
+  getFormsReport,
+  getFormsSummary
+} from "./service.js";
 
 const FormsSharedFiltersSchema = z.object({
   statuses: z
@@ -56,6 +61,12 @@ const FindFormsInputSchema = z.object({
     .describe("Optional search text for a form name, number, template, or status."),
   sessionKey: SessionKeySchema.optional(),
   filters: FormsSharedFiltersSchema.optional()
+});
+
+const ExportFormsCsvInputSchema = z.object({
+  projectId: ProjectIdSchema,
+  sessionKey: SessionKeySchema.optional(),
+  filters: FormsFiltersSchema.omit({ limit: true }).optional()
 });
 
 export function registerAccFormsTools(server: McpServer): void {
@@ -115,6 +126,27 @@ export function registerAccFormsTools(server: McpServer): void {
         return toToolResult(
           result,
           `Prepared a forms report with ${result.summary.reportRows} rows and ${result.summary.totalForms} total matches.`
+        );
+      } catch (error) {
+        return toToolError(error);
+      }
+    }
+  );
+
+  server.registerTool(
+    "export_forms_csv",
+    {
+      title: "Export Forms CSV",
+      description: "Generate a CSV artifact for project forms when the chat report is not enough.",
+      inputSchema: ExportFormsCsvInputSchema.shape
+    },
+    async (args) => {
+      try {
+        const input = ExportFormsCsvInputSchema.parse(args);
+        const result = await exportFormsCsv(input);
+        return toToolResult(
+          result,
+          `Prepared a forms CSV artifact with ${result.rowCount} rows.`
         );
       } catch (error) {
         return toToolError(error);

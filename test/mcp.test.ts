@@ -47,7 +47,12 @@ describe("registerTools", () => {
     registerAccIssuesTools(server as never);
 
     const toolNames = registerTool.mock.calls.map((call) => call[0]).sort();
-    expect(toolNames).toEqual(["get_issues"]);
+    expect(toolNames).toEqual([
+      "export_issues_csv",
+      "get_issues",
+      "get_issues_report",
+      "get_issues_summary"
+    ]);
     expect(registerTool.mock.calls[0]?.[1]).toHaveProperty("inputSchema");
   });
 
@@ -77,7 +82,14 @@ describe("registerTools", () => {
     registerAccSheetsTools(server as never);
 
     const toolNames = registerTool.mock.calls.map((call) => call[0]).sort();
-    expect(toolNames).toEqual(["find_sheets", "get_sheet_link", "get_sheet_summary"]);
+    expect(toolNames).toEqual([
+      "export_sheets_csv",
+      "find_sheets",
+      "get_sheet_link",
+      "get_sheet_summary",
+      "get_sheets_report",
+      "get_sheets_summary"
+    ]);
   });
 
   it("registers the rfi tools", () => {
@@ -90,6 +102,7 @@ describe("registerTools", () => {
 
     const toolNames = registerTool.mock.calls.map((call) => call[0]).sort();
     expect(toolNames).toEqual([
+      "export_rfis_csv",
       "find_rfis",
       "get_rfis_by_type",
       "get_rfis_report",
@@ -107,6 +120,7 @@ describe("registerTools", () => {
 
     const toolNames = registerTool.mock.calls.map((call) => call[0]).sort();
     expect(toolNames).toEqual([
+      "export_submittals_csv",
       "find_submittals",
       "get_submittals_by_spec",
       "get_submittals_report",
@@ -123,7 +137,12 @@ describe("registerTools", () => {
     registerAccFormsTools(server as never);
 
     const toolNames = registerTool.mock.calls.map((call) => call[0]).sort();
-    expect(toolNames).toEqual(["find_forms", "get_forms_report", "get_forms_summary"]);
+    expect(toolNames).toEqual([
+      "export_forms_csv",
+      "find_forms",
+      "get_forms_report",
+      "get_forms_summary"
+    ]);
   });
 
   it("registers the transmittals tools", () => {
@@ -136,8 +155,10 @@ describe("registerTools", () => {
 
     const toolNames = registerTool.mock.calls.map((call) => call[0]).sort();
     expect(toolNames).toEqual([
+      "export_transmittals_csv",
       "find_transmittals",
       "get_transmittal_details",
+      "get_transmittals_report",
       "get_transmittals_summary"
     ]);
   });

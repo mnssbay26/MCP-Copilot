@@ -1,5 +1,6 @@
 import { requestApsJson } from "../shared/aps/client.js";
 import { APS_CONSTRUCTION_FORMS_BASE_URL } from "../shared/aps/endpoints.js";
+import { createCsvArtifactResult, type CsvArtifactResult } from "../shared/mcp/csv.js";
 import {
   buildCollectionRetrievalMeta,
   buildSummaryCounts,
@@ -510,4 +511,38 @@ export async function getFormsReport(input: {
     },
     warnings: context.warnings
   };
+}
+
+export async function exportFormsCsv(input: {
+  projectId: string;
+  sessionKey?: string;
+  filters?: Omit<FormsFilters, "limit">;
+}): Promise<CsvArtifactResult> {
+  const context = await loadFormsContext(input);
+
+  return createCsvArtifactResult({
+    fileName: `forms-${context.meta.projectId}.csv`,
+    rows: context.forms,
+    columns: [
+      { header: "Form Name", value: (form) => form.formName },
+      { header: "Reference", value: (form) => form.reference },
+      { header: "Template Name", value: (form) => form.templateName },
+      { header: "Template Type", value: (form) => form.templateType },
+      { header: "Status", value: (form) => form.status },
+      { header: "Form Date", value: (form) => form.formDate },
+      { header: "Updated At", value: (form) => form.updatedAt }
+    ],
+    retrieval: buildCollectionRetrievalMeta({
+      totalFetched: context.retrieval.totalFetched,
+      pageCount: context.retrieval.pageCount,
+      sourceTruncated: context.retrieval.sourceTruncated,
+      rowsAvailable: context.forms.length,
+      rowsReturned: context.forms.length
+    }),
+    warnings: context.warnings,
+    meta: {
+      ...context.meta,
+      tool: "export_forms_csv"
+    }
+  });
 }

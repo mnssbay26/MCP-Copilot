@@ -25,6 +25,12 @@ export interface SheetLookupItem {
   linkAvailable: boolean;
 }
 
+export interface SheetsReportFilters {
+  discipline?: string;
+  query?: string;
+  limit?: number;
+}
+
 export interface SheetsFindResult {
   summary: {
     totalMatches: number;
@@ -55,6 +61,28 @@ export interface SheetsSummaryResult {
   };
   results: SummaryCount[];
   retrieval: CollectionRetrievalMeta;
+  meta: {
+    tool: string;
+    source: string;
+    generatedAt: string;
+    projectId: string;
+  };
+  warnings: ToolWarning[];
+}
+
+export interface SheetsReportResult {
+  summary: {
+    totalSheets: number;
+    reportRows: number;
+    disciplinesTracked: number;
+    linkReadySheets: number;
+  };
+  results: SheetLookupItem[];
+  breakdowns: {
+    byDiscipline: SummaryCount[];
+  };
+  retrieval: CollectionRetrievalMeta;
+  filtersApplied: SheetsReportFilters;
   meta: {
     tool: string;
     source: string;

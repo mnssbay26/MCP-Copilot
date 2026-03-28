@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  exportFormsCsv,
   findForms,
   getFormsReport,
   getFormsSummary
 } from "../src/mcp-acc-forms/service.js";
+import { clearArtifactsForTests, getArtifact } from "../src/shared/artifacts/store.js";
 import { defaultTokenCache, resetAuthForTests } from "../src/shared/auth/apsAuth.js";
 import { resetConfigForTests } from "../src/shared/config/env.js";
 
@@ -19,6 +21,7 @@ function applyBaseEnv(): void {
 
 beforeEach(async () => {
   applyBaseEnv();
+  clearArtifactsForTests();
   resetConfigForTests();
   await resetAuthForTests();
   await defaultTokenCache.set("default", {
@@ -32,6 +35,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  clearArtifactsForTests();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   resetConfigForTests();
@@ -188,5 +192,45 @@ describe("forms service", () => {
       pageCount: 1,
       truncated: false
     });
+  });
+
+  it("creates a csv artifact for deeper form review without returning the raw payload", async () => {
+    const fetchImpl = createFetchMock();
+    vi.stubGlobal("fetch", fetchImpl);
+
+    const result = await exportFormsCsv({
+      projectId: "project-1",
+      filters: {
+        includeInactiveFormTemplates: true
+      }
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      artifactType: "csv",
+      fileName: "forms-project-1.csv",
+      rowCount: 2,
+      truncated: false
+    });
+    expect(result.retrieval).toMatchObject({
+      totalFetched: 2,
+      pageCount: 1,
+      truncated: false
+    });
+
+    const artifactId = result.downloadPath.split("/").pop();
+    const artifact = artifactId ? getArtifact(artifactId) : null;
+    const csvContent = artifact?.content.toString("utf8") ?? "";
+
+    expect(csvContent).toContain(
+      "Form Name,Reference,Template Name,Template Type,Status,Form Date,Updated At"
+    );
+    expect(csvContent).toContain(
+      "Level 2 Safety Walk,FORM-001,Safety Walk,Safety,Open,2026-03-01,2026-03-02T10:00:00.000Z"
+    );
+    expect(csvContent).toContain(
+      "Archived Daily Log 12,FORM-002,Archived Daily Log,Daily Log,Draft,,2026-03-04T10:00:00.000Z"
+    );
+    expect(csvContent).not.toContain("jordan@example.com");
   });
 });

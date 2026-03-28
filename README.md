@@ -13,10 +13,11 @@ The current implementation supports:
 - Account admin / project-related MCP logic
 - Assets reporting MCP logic
 - Forms reporting MCP logic
-- Issues MCP logic
-- Sheets lookup MCP logic
+- Issues summary, report, and CSV export MCP logic
+- Sheets lookup, summary, report, and CSV export MCP logic
 - RFIs reporting MCP logic
 - Submittals reporting MCP logic
+- Transmittals summary, report, detail, and CSV export MCP logic
 - HTTP transport for ECS and stdio fallback for local MCP usage
 
 ## Architecture Overview
@@ -120,30 +121,27 @@ The `get_project_companies` tool uses a separate shared 2-legged app-context tok
 
 ## Current Tools
 
-- `get_projects`
-- `get_users`
-- `get_project_companies`
-- `get_issues`
-- `get_assets_summary`
-- `get_assets_by_category`
-- `get_assets_by_status`
-- `get_assets_report`
-- `get_forms_summary`
-- `find_forms`
-- `get_forms_report`
-- `find_sheets`
-- `get_sheet_summary`
-- `get_sheet_link`
-- `get_rfis_summary`
-- `get_rfis_by_type`
-- `get_rfis_report`
-- `find_rfis`
-- `get_submittals_summary`
-- `get_submittals_by_spec`
-- `get_submittals_report`
-- `find_submittals`
+The server keeps the existing project and user tools and now standardizes these read-only ACC/Forma domains around a consistent `summary`, `report`, and `export_csv` pattern:
+
+- Issues: `get_issues_summary`, `get_issues_report`, `export_issues_csv`
+- RFIs: `get_rfis_summary`, `get_rfis_report`, `export_rfis_csv`
+- Submittals: `get_submittals_summary`, `get_submittals_report`, `export_submittals_csv`
+- Transmittals: `get_transmittals_summary`, `get_transmittals_report`, `export_transmittals_csv`
+- Sheets: `get_sheet_summary`, `get_sheets_summary`, `get_sheets_report`, `export_sheets_csv`
+- Forms: `get_forms_summary`, `get_forms_report`, `export_forms_csv`
+
+The earlier lookup tools such as `get_issues`, `find_forms`, `find_sheets`, `find_rfis`, `find_submittals`, `find_transmittals`, and `get_transmittal_details` remain available for narrower follow-up questions.
 
 These tools are read-only and return curated summary/report payloads instead of raw APS module dumps. The existing auth, projects, users, and issues behavior remains in place.
+
+## CSV Exports
+
+Use the `export_*_csv` tools when a chat summary or bounded report is not enough and you need the deeper-detail path.
+
+- Export tools fetch all relevant pages up to explicit safe limits.
+- They generate CSV files in backend application code.
+- They return artifact metadata such as `fileName`, `rowCount`, `truncated`, `downloadPath`, and `expiresAt` instead of sending CSV bodies inline in chat.
+- The current artifact implementation is an in-memory backend route intended for safe single-process use during this phase.
 
 ## First Deployment Scope
 
@@ -214,4 +212,5 @@ Useful HTTP routes:
 - `GET /auth/url`
 - `GET /auth/status`
 - `GET /auth/callback`
+- `GET /artifacts/:artifactId`
 - `ALL /mcp`

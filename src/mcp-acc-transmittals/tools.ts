@@ -3,8 +3,10 @@ import { z } from "zod";
 import { ProjectIdSchema, SessionKeySchema } from "../shared/mcp/sharedSchemas.js";
 import { toToolError, toToolResult } from "../shared/mcp/toolResult.js";
 import {
+  exportTransmittalsCsv,
   findTransmittals,
   getTransmittalDetails,
+  getTransmittalsReport,
   getTransmittalsSummary
 } from "./service.js";
 
@@ -35,7 +37,7 @@ const TransmittalsFiltersSchema = z.object({
     .min(1)
     .max(50)
     .optional()
-    .describe("Maximum number of related folders or documents to return in detail views.")
+    .describe("Maximum number of visible transmittal rows in reports, or related rows in detail views.")
 });
 
 const GetTransmittalsSummaryInputSchema = z.object({
@@ -55,6 +57,17 @@ const FindTransmittalsInputSchema = z.object({
   filters: TransmittalsFiltersSchema.optional()
 });
 
+const GetTransmittalsReportInputSchema = z.object({
+  projectId: ProjectIdSchema,
+  query: z
+    .string()
+    .min(1)
+    .optional()
+    .describe("Optional search text for a transmittal number, title, sender, or status."),
+  sessionKey: SessionKeySchema.optional(),
+  filters: TransmittalsFiltersSchema.optional()
+});
+
 const GetTransmittalDetailsInputSchema = z.object({
   projectId: ProjectIdSchema,
   transmittalId: z
@@ -62,6 +75,17 @@ const GetTransmittalDetailsInputSchema = z.object({
     .min(1)
     .describe("The transmittal identifier to inspect."),
   sessionKey: SessionKeySchema.optional()
+});
+
+const ExportTransmittalsCsvInputSchema = z.object({
+  projectId: ProjectIdSchema,
+  query: z
+    .string()
+    .min(1)
+    .optional()
+    .describe("Optional search text for a transmittal number, title, sender, or status."),
+  sessionKey: SessionKeySchema.optional(),
+  filters: TransmittalsFiltersSchema.omit({ limit: true }).optional()
 });
 
 export function registerAccTransmittalsTools(server: McpServer): void {
@@ -108,6 +132,27 @@ export function registerAccTransmittalsTools(server: McpServer): void {
   );
 
   server.registerTool(
+    "get_transmittals_report",
+    {
+      title: "Get Transmittals Report",
+      description: "Create a bounded transmittals report with safe detail rows and retrieval metadata.",
+      inputSchema: GetTransmittalsReportInputSchema.shape
+    },
+    async (args) => {
+      try {
+        const input = GetTransmittalsReportInputSchema.parse(args);
+        const result = await getTransmittalsReport(input);
+        return toToolResult(
+          result,
+          `Prepared a transmittals report with ${result.summary.reportRows} rows and ${result.summary.totalTransmittals} total matches.`
+        );
+      } catch (error) {
+        return toToolError(error);
+      }
+    }
+  );
+
+  server.registerTool(
     "get_transmittal_details",
     {
       title: "Get Transmittal Details",
@@ -123,6 +168,27 @@ export function registerAccTransmittalsTools(server: McpServer): void {
           result.summary.found
             ? `Loaded the requested transmittal with ${result.summary.documentCount} documents and ${result.summary.recipientCount} recipients.`
             : `The requested transmittal could not be found.`
+        );
+      } catch (error) {
+        return toToolError(error);
+      }
+    }
+  );
+
+  server.registerTool(
+    "export_transmittals_csv",
+    {
+      title: "Export Transmittals CSV",
+      description: "Generate a CSV artifact for project transmittals when the chat report is not enough.",
+      inputSchema: ExportTransmittalsCsvInputSchema.shape
+    },
+    async (args) => {
+      try {
+        const input = ExportTransmittalsCsvInputSchema.parse(args);
+        const result = await exportTransmittalsCsv(input);
+        return toToolResult(
+          result,
+          `Prepared a transmittals CSV artifact with ${result.rowCount} rows.`
         );
       } catch (error) {
         return toToolError(error);

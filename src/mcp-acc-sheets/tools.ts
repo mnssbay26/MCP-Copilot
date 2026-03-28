@@ -2,7 +2,13 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { ProjectIdSchema, SessionKeySchema } from "../shared/mcp/sharedSchemas.js";
 import { toToolError, toToolResult } from "../shared/mcp/toolResult.js";
-import { findSheets, getSheetLink, getSheetSummary } from "./service.js";
+import {
+  exportSheetsCsv,
+  findSheets,
+  getSheetLink,
+  getSheetSummary,
+  getSheetsReport
+} from "./service.js";
 
 const FindSheetsInputSchema = z.object({
   projectId: ProjectIdSchema,
@@ -22,6 +28,38 @@ const FindSheetsInputSchema = z.object({
 const GetSheetSummaryInputSchema = z.object({
   projectId: ProjectIdSchema,
   sessionKey: SessionKeySchema.optional()
+});
+
+const SheetsReportFiltersSchema = z.object({
+  discipline: z
+    .string()
+    .min(1)
+    .optional()
+    .describe("Optional sheet discipline filter, such as A, S, or M."),
+  query: z
+    .string()
+    .min(1)
+    .optional()
+    .describe("Optional search text for a sheet number or title."),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(50)
+    .optional()
+    .describe("Maximum number of visible sheet rows to include in the report.")
+});
+
+const GetSheetsReportInputSchema = z.object({
+  projectId: ProjectIdSchema,
+  sessionKey: SessionKeySchema.optional(),
+  filters: SheetsReportFiltersSchema.optional()
+});
+
+const ExportSheetsCsvInputSchema = z.object({
+  projectId: ProjectIdSchema,
+  sessionKey: SessionKeySchema.optional(),
+  filters: SheetsReportFiltersSchema.omit({ limit: true }).optional()
 });
 
 const GetSheetLinkInputSchema = z
@@ -104,6 +142,48 @@ export function registerAccSheetsTools(server: McpServer): void {
   );
 
   server.registerTool(
+    "get_sheets_summary",
+    {
+      title: "Get Sheets Summary",
+      description: "Summarize project sheets by discipline so PMs can see what is published.",
+      inputSchema: GetSheetSummaryInputSchema.shape
+    },
+    async (args) => {
+      try {
+        const input = GetSheetSummaryInputSchema.parse(args);
+        const result = await getSheetSummary(input);
+        return toToolResult(
+          result,
+          `Prepared a sheet summary for ${result.summary.totalSheets} sheets.`
+        );
+      } catch (error) {
+        return toToolError(error);
+      }
+    }
+  );
+
+  server.registerTool(
+    "get_sheets_report",
+    {
+      title: "Get Sheets Report",
+      description: "Create a bounded sheets report with safe detail rows and retrieval metadata.",
+      inputSchema: GetSheetsReportInputSchema.shape
+    },
+    async (args) => {
+      try {
+        const input = GetSheetsReportInputSchema.parse(args);
+        const result = await getSheetsReport(input);
+        return toToolResult(
+          result,
+          `Prepared a sheets report with ${result.summary.reportRows} rows and ${result.summary.totalSheets} total matches.`
+        );
+      } catch (error) {
+        return toToolError(error);
+      }
+    }
+  );
+
+  server.registerTool(
     "get_sheet_link",
     {
       title: "Get Sheet Link",
@@ -121,6 +201,27 @@ export function registerAccSheetsTools(server: McpServer): void {
               ? "Found the sheet and returned an ACC link."
               : "Found the sheet, but no ACC link was available in the API response."
             : "No matching sheet was found."
+        );
+      } catch (error) {
+        return toToolError(error);
+      }
+    }
+  );
+
+  server.registerTool(
+    "export_sheets_csv",
+    {
+      title: "Export Sheets CSV",
+      description: "Generate a CSV artifact for project sheets when the chat report is not enough.",
+      inputSchema: ExportSheetsCsvInputSchema.shape
+    },
+    async (args) => {
+      try {
+        const input = ExportSheetsCsvInputSchema.parse(args);
+        const result = await exportSheetsCsv(input);
+        return toToolResult(
+          result,
+          `Prepared a sheets CSV artifact with ${result.rowCount} rows.`
         );
       } catch (error) {
         return toToolError(error);

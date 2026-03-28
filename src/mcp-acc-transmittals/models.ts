@@ -109,6 +109,32 @@ export interface FindTransmittalsResult {
   warnings: ToolWarning[];
 }
 
+export interface TransmittalsReportResult {
+  summary: {
+    totalTransmittals: number;
+    reportRows: number;
+    statusesTracked: number;
+    senderGroupsTracked: number;
+    documentsReferenced: number;
+  };
+  results: TransmittalLookupItem[];
+  breakdowns: {
+    byStatus: SummaryCount[];
+    bySender: SummaryCount[];
+  };
+  retrieval: CollectionRetrievalMeta;
+  filtersApplied: TransmittalsFilters & {
+    query?: string;
+  };
+  meta: {
+    tool: string;
+    source: string;
+    generatedAt: string;
+    projectId: string;
+  };
+  warnings: ToolWarning[];
+}
+
 export interface TransmittalDetailsResult {
   summary: {
     found: boolean;

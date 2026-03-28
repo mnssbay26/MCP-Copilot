@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getRfisReport } from "../src/mcp-acc-rfis/service.js";
+import { exportRfisCsv, getRfisReport } from "../src/mcp-acc-rfis/service.js";
+import { clearArtifactsForTests, getArtifact } from "../src/shared/artifacts/store.js";
 import { defaultTokenCache, resetAuthForTests } from "../src/shared/auth/apsAuth.js";
 
 beforeEach(async () => {
+  clearArtifactsForTests();
   await resetAuthForTests();
   await defaultTokenCache.set("session-rfis", {
     accessToken: "rfis-token",
@@ -15,14 +17,15 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  clearArtifactsForTests();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   await resetAuthForTests();
 });
 
 describe("rfis service", () => {
-  it("builds a safe report with type and custom-attribute enrichment", async () => {
-    const fetchImpl = vi
+  function createFetchMock() {
+    return vi
       .fn()
       .mockResolvedValueOnce(
         new Response(
@@ -67,6 +70,10 @@ describe("rfis service", () => {
           { status: 200, headers: { "Content-Type": "application/json" } }
         )
       );
+  }
+
+  it("builds a safe report with type and custom-attribute enrichment", async () => {
+    const fetchImpl = createFetchMock();
 
     vi.stubGlobal("fetch", fetchImpl);
 
@@ -92,5 +99,44 @@ describe("rfis service", () => {
     });
     expect(JSON.stringify(result)).not.toContain("alex@example.com");
     expect(JSON.stringify(result)).not.toContain("\"id\":\"rfi-1\"");
+  });
+
+  it("creates a csv artifact with curated columns and no email exposure", async () => {
+    const fetchImpl = createFetchMock();
+    vi.stubGlobal("fetch", fetchImpl);
+
+    const result = await exportRfisCsv({
+      projectId: "b.project-1",
+      sessionKey: "session-rfis",
+      filters: {
+        attributeNames: ["Priority"]
+      }
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      artifactType: "csv",
+      fileName: "rfis-project-1.csv",
+      rowCount: 1,
+      truncated: false
+    });
+    expect(result.downloadPath).toMatch(/^\/artifacts\/.+/);
+    expect(result.retrieval).toMatchObject({
+      totalFetched: 1,
+      pageCount: 1,
+      truncated: false
+    });
+
+    const artifactId = result.downloadPath.split("/").pop();
+    const artifact = artifactId ? getArtifact(artifactId) : null;
+    const csvContent = artifact?.content.toString("utf8") ?? "";
+
+    expect(csvContent).toContain(
+      "RFI Number,Title,Status,Type,Assigned To,Due Date,Created At,Updated At,Custom Attributes"
+    );
+    expect(csvContent).toContain("14,Clarify door hardware,Open,Design,Alex Reviewer");
+    expect(csvContent).toContain("Priority: Critical");
+    expect(csvContent).not.toContain("alex@example.com");
+    expect(csvContent).not.toContain("\"id\":\"rfi-1\"");
   });
 });

@@ -1,8 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getSheetSummary } from "../src/mcp-acc-sheets/service.js";
+import {
+  exportSheetsCsv,
+  getSheetSummary,
+  getSheetsReport
+} from "../src/mcp-acc-sheets/service.js";
+import { clearArtifactsForTests, getArtifact } from "../src/shared/artifacts/store.js";
 import { defaultTokenCache, resetAuthForTests } from "../src/shared/auth/apsAuth.js";
 
 beforeEach(async () => {
+  clearArtifactsForTests();
   await resetAuthForTests();
   await defaultTokenCache.set("session-sheets", {
     accessToken: "sheets-token",
@@ -15,33 +21,43 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  clearArtifactsForTests();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   await resetAuthForTests();
 });
 
 describe("sheets service", () => {
-  it("summarizes sheets by discipline and tracks link availability", async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          results: [
-            {
-              id: "sheet-1",
-              number: "A101",
-              title: "Architectural Plan",
-              viewerUrl: "https://acc.example.com/sheets/A101"
-            },
-            {
-              id: "sheet-2",
-              number: "S201",
-              title: "Structural Section"
-            }
-          ]
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
+  function createFetchMock() {
+    return vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            results: [
+              {
+                id: "sheet-1",
+                number: "A101",
+                title: "Architectural Plan",
+                viewerUrl: "https://acc.example.com/sheets/A101",
+                versionSetName: "Permit",
+                tags: ["Permit", "Level 1"],
+                updatedAt: "2026-03-03T00:00:00Z"
+              },
+              {
+                id: "sheet-2",
+                number: "S201",
+                title: "Structural Section"
+              }
+            ]
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        )
       )
     );
+  }
+
+  it("summarizes sheets by discipline and tracks link availability", async () => {
+    const fetchImpl = createFetchMock();
 
     vi.stubGlobal("fetch", fetchImpl);
 
@@ -62,5 +78,57 @@ describe("sheets service", () => {
       pageCount: 1,
       truncated: false
     });
+  });
+
+  it("builds a bounded report and csv artifact for sheets", async () => {
+    const fetchImpl = createFetchMock();
+    vi.stubGlobal("fetch", fetchImpl);
+
+    const report = await getSheetsReport({
+      projectId: "b.project-1",
+      sessionKey: "session-sheets",
+      filters: {
+        limit: 1
+      }
+    });
+    const exportResult = await exportSheetsCsv({
+      projectId: "b.project-1",
+      sessionKey: "session-sheets"
+    });
+
+    expect(report.summary).toMatchObject({
+      totalSheets: 2,
+      reportRows: 1,
+      disciplinesTracked: 2,
+      linkReadySheets: 1
+    });
+    expect(report.results[0]).toMatchObject({
+      sheetNumber: "A101",
+      discipline: "A",
+      linkAvailable: true
+    });
+    expect(report.retrieval).toMatchObject({
+      totalFetched: 2,
+      rowsTruncated: true,
+      truncated: true,
+      safeLimitReached: true
+    });
+
+    expect(exportResult).toMatchObject({
+      ok: true,
+      artifactType: "csv",
+      fileName: "sheets-project-1.csv",
+      rowCount: 2,
+      truncated: false
+    });
+    const artifactId = exportResult.downloadPath.split("/").pop();
+    const artifact = artifactId ? getArtifact(artifactId) : null;
+    const csvContent = artifact?.content.toString("utf8") ?? "";
+
+    expect(csvContent).toContain(
+      "Sheet Number,Title,Discipline,Version Set,Tags,Updated At,Published At,ACC Link Available"
+    );
+    expect(csvContent).toContain("A101,Architectural Plan,A,Permit,Permit; Level 1,2026-03-03T00:00:00Z,,Yes");
+    expect(csvContent).toContain("S201,Structural Section,S");
   });
 });

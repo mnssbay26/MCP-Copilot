@@ -36,6 +36,7 @@ import { registerApsAuthTools } from "./mcp-auth/tools.js";
 import wellKnownRouter from "./http/routes/wellKnown.js";
 import mcpGatewayRouter from "./http/routes/mcpHttpGateway.js";
 import healthRouter from "./http/routes/health.js";
+import artifactsRouter from "./http/routes/artifacts.js";
 // import wellKnownRouter from "./http/routers/wellKnown.js"; // <-- usa esta si tu carpeta es "routers"
 
 const SMOKE_PROJECT_LIMIT = 5;
@@ -164,6 +165,7 @@ function registerSmokeRoutes(app: Express): void {
 export function createRootHttpApp() {
   const app = createHttpApp({ createServer: createCombinedMcpServer });
   app.use(healthRouter);            
+  app.use(artifactsRouter);
   app.use(wellKnownRouter);
   app.use(mcpRouter);
   app.use(mcpGatewayRouter);

@@ -1,5 +1,6 @@
 import { requestApsJson } from "../shared/aps/client.js";
 import { APS_CONSTRUCTION_TRANSMITTALS_BASE_URL } from "../shared/aps/endpoints.js";
+import { createCsvArtifactResult, type CsvArtifactResult } from "../shared/mcp/csv.js";
 import {
   buildCollectionRetrievalMeta,
   buildSummaryCounts,
@@ -28,6 +29,7 @@ import type {
   TransmittalLookupItem,
   TransmittalRecipient,
   TransmittalsFilters,
+  TransmittalsReportResult,
   TransmittalsResponse,
   TransmittalsSummaryResult
 } from "./models.js";
@@ -503,6 +505,90 @@ export async function findTransmittals(input: {
     meta: createMeta("find_transmittals", context.meta.projectId),
     warnings: context.warnings
   };
+}
+
+export async function getTransmittalsReport(input: {
+  projectId: string;
+  query?: string;
+  sessionKey?: string;
+  filters?: TransmittalsFilters;
+}): Promise<TransmittalsReportResult> {
+  const context = await loadTransmittalContext(input);
+  const limit = clampLimit(context.filtersApplied.limit);
+  const results = context.items.slice(0, limit);
+  const byStatus = buildSummaryCounts(context.items.map((item) => item.status), "Unspecified");
+  const bySender = buildSummaryCounts(context.items.map((item) => item.sentBy), "Unknown sender");
+
+  if (context.items.length > results.length) {
+    context.warnings.push({
+      code: "transmittal_report_truncated",
+      message: `Returned the first ${results.length} matching transmittals to keep the report concise.`
+    });
+  }
+
+  return {
+    summary: {
+      totalTransmittals: context.items.length,
+      reportRows: results.length,
+      statusesTracked: byStatus.length,
+      senderGroupsTracked: bySender.length,
+      documentsReferenced: context.items.reduce(
+        (total, item) => total + (item.documentsCount ?? 0),
+        0
+      )
+    },
+    results,
+    breakdowns: {
+      byStatus,
+      bySender
+    },
+    retrieval: buildCollectionRetrievalMeta({
+      totalFetched: context.retrieval.totalFetched,
+      pageCount: context.retrieval.pageCount,
+      sourceTruncated: context.retrieval.sourceTruncated,
+      rowsAvailable: context.items.length,
+      rowsReturned: results.length
+    }),
+    filtersApplied: {
+      ...context.filtersApplied,
+      ...(input.query?.trim() ? { query: input.query.trim() } : {}),
+      limit
+    },
+    meta: createMeta("get_transmittals_report", context.meta.projectId),
+    warnings: context.warnings
+  };
+}
+
+export async function exportTransmittalsCsv(input: {
+  projectId: string;
+  query?: string;
+  sessionKey?: string;
+  filters?: Omit<TransmittalsFilters, "limit">;
+}): Promise<CsvArtifactResult> {
+  const context = await loadTransmittalContext(input);
+
+  return createCsvArtifactResult({
+    fileName: `transmittals-${context.meta.projectId}.csv`,
+    rows: context.items,
+    columns: [
+      { header: "Transmittal Number", value: (item) => item.sequenceId },
+      { header: "Title", value: (item) => item.title },
+      { header: "Status", value: (item) => item.status },
+      { header: "Sent By", value: (item) => item.sentBy },
+      { header: "Created At", value: (item) => item.createdAt },
+      { header: "Updated At", value: (item) => item.updatedAt },
+      { header: "Documents Count", value: (item) => item.documentsCount }
+    ],
+    retrieval: buildCollectionRetrievalMeta({
+      totalFetched: context.retrieval.totalFetched,
+      pageCount: context.retrieval.pageCount,
+      sourceTruncated: context.retrieval.sourceTruncated,
+      rowsAvailable: context.items.length,
+      rowsReturned: context.items.length
+    }),
+    warnings: context.warnings,
+    meta: createMeta("export_transmittals_csv", context.meta.projectId)
+  });
 }
 
 export async function getTransmittalDetails(input: {

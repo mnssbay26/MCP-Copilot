@@ -3,6 +3,7 @@ import { z } from "zod";
 import { ProjectIdSchema, SessionKeySchema } from "../shared/mcp/sharedSchemas.js";
 import { toToolError, toToolResult } from "../shared/mcp/toolResult.js";
 import {
+  exportSubmittalsCsv,
   findSubmittals,
   getSubmittalsBySpec,
   getSubmittalsReport,
@@ -48,6 +49,12 @@ const FindSubmittalsInputSchema = z.object({
     .optional()
     .describe("Optional search text for a submittal number, title, manager, or spec section."),
   sessionKey: SessionKeySchema.optional()
+});
+
+const ExportSubmittalsCsvInputSchema = z.object({
+  projectId: ProjectIdSchema,
+  sessionKey: SessionKeySchema.optional(),
+  filters: SubmittalsFiltersSchema.omit({ limit: true }).optional()
 });
 
 export function registerAccSubmittalsTools(server: McpServer): void {
@@ -128,6 +135,27 @@ export function registerAccSubmittalsTools(server: McpServer): void {
         return toToolResult(
           result,
           `Found ${result.summary.totalMatches} matching submittals and returned ${result.summary.returnedRows} rows.`
+        );
+      } catch (error) {
+        return toToolError(error);
+      }
+    }
+  );
+
+  server.registerTool(
+    "export_submittals_csv",
+    {
+      title: "Export Submittals CSV",
+      description: "Generate a CSV artifact for project submittals when the chat report is not enough.",
+      inputSchema: ExportSubmittalsCsvInputSchema.shape
+    },
+    async (args) => {
+      try {
+        const input = ExportSubmittalsCsvInputSchema.parse(args);
+        const result = await exportSubmittalsCsv(input);
+        return toToolResult(
+          result,
+          `Prepared a submittals CSV artifact with ${result.rowCount} rows.`
         );
       } catch (error) {
         return toToolError(error);

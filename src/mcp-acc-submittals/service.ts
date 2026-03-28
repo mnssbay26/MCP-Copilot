@@ -1,5 +1,6 @@
 import { requestApsJson } from "../shared/aps/client.js";
 import { APS_CONSTRUCTION_SUBMITTALS_BASE_URL } from "../shared/aps/endpoints.js";
+import { createCsvArtifactResult, type CsvArtifactResult } from "../shared/mcp/csv.js";
 import {
   buildCollectionRetrievalMeta,
   buildSummaryCounts,
@@ -525,4 +526,39 @@ export async function findSubmittals(input: {
     },
     warnings: context.warnings
   };
+}
+
+export async function exportSubmittalsCsv(input: {
+  projectId: string;
+  sessionKey?: string;
+  filters?: Omit<SubmittalsFilters, "limit">;
+}): Promise<CsvArtifactResult> {
+  const context = await loadSubmittalContext(input);
+
+  return createCsvArtifactResult({
+    fileName: `submittals-${context.meta.projectId}.csv`,
+    rows: context.items,
+    columns: [
+      { header: "Submittal Number", value: (item) => item.identifier },
+      { header: "Title", value: (item) => item.title },
+      { header: "Status", value: (item) => item.status },
+      { header: "Spec Section", value: (item) => item.specSection },
+      { header: "Manager", value: (item) => item.manager },
+      { header: "Response", value: (item) => item.response },
+      { header: "Due Date", value: (item) => item.dueDate },
+      { header: "Updated At", value: (item) => item.updatedAt }
+    ],
+    retrieval: buildCollectionRetrievalMeta({
+      totalFetched: context.retrieval.totalFetched,
+      pageCount: context.retrieval.pageCount,
+      sourceTruncated: context.retrieval.sourceTruncated,
+      rowsAvailable: context.items.length,
+      rowsReturned: context.items.length
+    }),
+    warnings: context.warnings,
+    meta: {
+      ...context.meta,
+      tool: "export_submittals_csv"
+    }
+  });
 }

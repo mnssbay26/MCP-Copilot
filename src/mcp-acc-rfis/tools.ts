@@ -2,7 +2,13 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { ProjectIdSchema, SessionKeySchema } from "../shared/mcp/sharedSchemas.js";
 import { toToolError, toToolResult } from "../shared/mcp/toolResult.js";
-import { findRfis, getRfisByType, getRfisReport, getRfisSummary } from "./service.js";
+import {
+  exportRfisCsv,
+  findRfis,
+  getRfisByType,
+  getRfisReport,
+  getRfisSummary
+} from "./service.js";
 
 const RfisFiltersSchema = z.object({
   query: z
@@ -48,6 +54,12 @@ const FindRfisInputSchema = z.object({
     .optional()
     .describe("Optional search text for an RFI number, title, or assignee."),
   sessionKey: SessionKeySchema.optional()
+});
+
+const ExportRfisCsvInputSchema = z.object({
+  projectId: ProjectIdSchema,
+  sessionKey: SessionKeySchema.optional(),
+  filters: RfisFiltersSchema.omit({ limit: true }).optional()
 });
 
 export function registerAccRfisTools(server: McpServer): void {
@@ -128,6 +140,27 @@ export function registerAccRfisTools(server: McpServer): void {
         return toToolResult(
           result,
           `Found ${result.summary.totalMatches} matching RFIs and returned ${result.summary.returnedRows} rows.`
+        );
+      } catch (error) {
+        return toToolError(error);
+      }
+    }
+  );
+
+  server.registerTool(
+    "export_rfis_csv",
+    {
+      title: "Export RFIs CSV",
+      description: "Generate a CSV artifact for project RFIs when the chat report is not enough.",
+      inputSchema: ExportRfisCsvInputSchema.shape
+    },
+    async (args) => {
+      try {
+        const input = ExportRfisCsvInputSchema.parse(args);
+        const result = await exportRfisCsv(input);
+        return toToolResult(
+          result,
+          `Prepared an RFIs CSV artifact with ${result.rowCount} rows.`
         );
       } catch (error) {
         return toToolError(error);

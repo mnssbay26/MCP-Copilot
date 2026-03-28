@@ -1,5 +1,6 @@
 import { requestApsJson } from "../shared/aps/client.js";
 import { APS_CONSTRUCTION_RFIS_BASE_URL } from "../shared/aps/endpoints.js";
+import { createCsvArtifactResult, type CsvArtifactResult } from "../shared/mcp/csv.js";
 import {
   buildCollectionRetrievalMeta,
   buildSummaryCounts,
@@ -687,4 +688,49 @@ export async function findRfis(input: {
     },
     warnings: context.warnings
   };
+}
+
+export async function exportRfisCsv(input: {
+  projectId: string;
+  sessionKey?: string;
+  filters?: Omit<RfisFilters, "limit">;
+}): Promise<CsvArtifactResult> {
+  const context = await loadRfiContext({
+    ...input,
+    includeCustomAttributes: true
+  });
+
+  return createCsvArtifactResult({
+    fileName: `rfis-${context.meta.projectId}.csv`,
+    rows: context.rfis,
+    columns: [
+      { header: "RFI Number", value: (rfi) => rfi.rfiNumber },
+      { header: "Title", value: (rfi) => rfi.title },
+      { header: "Status", value: (rfi) => rfi.status },
+      { header: "Type", value: (rfi) => rfi.type },
+      { header: "Assigned To", value: (rfi) => rfi.assignedTo },
+      { header: "Due Date", value: (rfi) => rfi.dueDate },
+      { header: "Created At", value: (rfi) => rfi.createdAt },
+      { header: "Updated At", value: (rfi) => rfi.updatedAt },
+      {
+        header: "Custom Attributes",
+        value: (rfi) =>
+          rfi.customAttributes
+            ? Object.entries(rfi.customAttributes).map(([key, value]) => `${key}: ${String(value)}`)
+            : undefined
+      }
+    ],
+    retrieval: buildCollectionRetrievalMeta({
+      totalFetched: context.retrieval.totalFetched,
+      pageCount: context.retrieval.pageCount,
+      sourceTruncated: context.retrieval.sourceTruncated,
+      rowsAvailable: context.rfis.length,
+      rowsReturned: context.rfis.length
+    }),
+    warnings: context.warnings,
+    meta: {
+      ...context.meta,
+      tool: "export_rfis_csv"
+    }
+  });
 }

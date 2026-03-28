@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  exportTransmittalsCsv,
   getTransmittalDetails,
+  getTransmittalsReport,
   getTransmittalsSummary
 } from "../src/mcp-acc-transmittals/service.js";
+import { clearArtifactsForTests, getArtifact } from "../src/shared/artifacts/store.js";
 import { defaultTokenCache, resetAuthForTests } from "../src/shared/auth/apsAuth.js";
 import { resetConfigForTests } from "../src/shared/config/env.js";
 
@@ -26,6 +29,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 beforeEach(async () => {
   applyBaseEnv();
+  clearArtifactsForTests();
   resetConfigForTests();
   await resetAuthForTests();
   await defaultTokenCache.set("session-transmittals", {
@@ -39,6 +43,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  clearArtifactsForTests();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   resetConfigForTests();
@@ -46,38 +51,51 @@ afterEach(async () => {
 });
 
 describe("transmittals service", () => {
+  function createListFetchMock() {
+    return vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+
+      if (url.includes("/construction/transmittals/v1/projects/project-1/transmittals")) {
+        return Promise.resolve(
+          jsonResponse({
+            results: [
+              {
+                id: "trans-1",
+                sequenceId: "TR-001",
+                title: "Electrical package",
+                status: { displayName: "Sent" },
+                sentBy: "user-1",
+                documentsCount: 3,
+                createdAt: "2026-03-01T00:00:00Z"
+              },
+              {
+                id: "trans-2",
+                sequenceId: "TR-002",
+                title: "Site photos",
+                status: "Draft",
+                sender: { displayName: "Inline Sender" },
+                documentsCount: 1,
+                createdAt: "2026-03-02T00:00:00Z"
+              }
+            ]
+          })
+        );
+      }
+
+      if (url.includes("/construction/admin/v1/projects/project-1/users")) {
+        return Promise.resolve(
+          jsonResponse({
+            results: [{ userId: "user-1", displayName: "Jane Sender" }]
+          })
+        );
+      }
+
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+  }
+
   it("builds a sender-friendly summary without exposing raw user ids", async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(
-        jsonResponse({
-          results: [
-            {
-              id: "trans-1",
-              sequenceId: "TR-001",
-              title: "Electrical package",
-              status: { displayName: "Sent" },
-              sentBy: "user-1",
-              documentsCount: 3,
-              createdAt: "2026-03-01T00:00:00Z"
-            },
-            {
-              id: "trans-2",
-              sequenceId: "TR-002",
-              title: "Site photos",
-              status: "Draft",
-              sender: { displayName: "Inline Sender" },
-              documentsCount: 1,
-              createdAt: "2026-03-02T00:00:00Z"
-            }
-          ]
-        })
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          results: [{ userId: "user-1", displayName: "Jane Sender" }]
-        })
-      );
+    const fetchImpl = createListFetchMock();
 
     vi.stubGlobal("fetch", fetchImpl);
 
@@ -101,6 +119,58 @@ describe("transmittals service", () => {
       ])
     );
     expect(JSON.stringify(result)).not.toContain("user-1");
+  });
+
+  it("builds a bounded report and csv artifact for transmittals", async () => {
+    const fetchImpl = createListFetchMock();
+    vi.stubGlobal("fetch", fetchImpl);
+
+    const report = await getTransmittalsReport({
+      projectId: "b.project-1",
+      sessionKey: "session-transmittals",
+      filters: {
+        limit: 1
+      }
+    });
+    const exportResult = await exportTransmittalsCsv({
+      projectId: "b.project-1",
+      sessionKey: "session-transmittals"
+    });
+
+    expect(report.summary).toMatchObject({
+      totalTransmittals: 2,
+      reportRows: 1,
+      documentsReferenced: 4
+    });
+    expect(report.results[0]).toMatchObject({
+      sequenceId: "TR-001",
+      sentBy: "Jane Sender"
+    });
+    expect(report.retrieval).toMatchObject({
+      totalFetched: 2,
+      pageCount: 1,
+      rowsTruncated: true,
+      truncated: true,
+      safeLimitReached: true
+    });
+
+    expect(exportResult).toMatchObject({
+      ok: true,
+      artifactType: "csv",
+      fileName: "transmittals-project-1.csv",
+      rowCount: 2,
+      truncated: false
+    });
+    const artifactId = exportResult.downloadPath.split("/").pop();
+    const artifact = artifactId ? getArtifact(artifactId) : null;
+    const csvContent = artifact?.content.toString("utf8") ?? "";
+
+    expect(csvContent).toContain(
+      "Transmittal Number,Title,Status,Sent By,Created At,Updated At,Documents Count"
+    );
+    expect(csvContent).toContain("TR-001,Electrical package,Sent,Jane Sender,2026-03-01T00:00:00Z");
+    expect(csvContent).toContain("TR-002,Site photos,Draft,Inline Sender,2026-03-02T00:00:00Z");
+    expect(csvContent).not.toContain("user-1");
   });
 
   it("returns transmittal details with recipient and document display names", async () => {

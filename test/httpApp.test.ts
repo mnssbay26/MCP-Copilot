@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
 import { createCombinedMcpServer, createRootHttpApp } from "../src/index.js";
+import { clearArtifactsForTests, saveArtifact } from "../src/shared/artifacts/store.js";
 import { resetAuthForTests } from "../src/shared/auth/apsAuth.js";
 import { createHttpApp } from "../src/shared/bootstrap/httpApp.js";
 import { resetConfigForTests } from "../src/shared/config/env.js";
@@ -17,11 +18,13 @@ function applyBaseEnv(): void {
 
 beforeEach(async () => {
   applyBaseEnv();
+  clearArtifactsForTests();
   resetConfigForTests();
   await resetAuthForTests();
 });
 
 afterEach(async () => {
+  clearArtifactsForTests();
   resetConfigForTests();
   await resetAuthForTests();
 });
@@ -66,5 +69,21 @@ describe("createHttpApp", () => {
 
     expect(response.status).toBe(401);
     expect(response.body.error).toContain("No Autodesk token is cached");
+  });
+
+  it("serves stored csv artifacts through the root app", async () => {
+    const artifact = saveArtifact({
+      fileName: "issues-project-1.csv",
+      contentType: "text/csv; charset=utf-8",
+      content: "Issue Number,Title\r\n101,Door clash"
+    });
+    const app = createRootHttpApp();
+    const response = await request(app).get(artifact.downloadPath);
+
+    expect(response.status).toBe(200);
+    expect(response.headers["content-type"]).toContain("text/csv");
+    expect(response.headers["content-disposition"]).toContain("issues-project-1.csv");
+    expect(response.text).toContain("Issue Number,Title");
+    expect(response.text).toContain("101,Door clash");
   });
 });

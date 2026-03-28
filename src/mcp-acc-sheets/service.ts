@@ -1,5 +1,6 @@
 import { requestApsJson } from "../shared/aps/client.js";
 import { APS_CONSTRUCTION_SHEETS_BASE_URL } from "../shared/aps/endpoints.js";
+import { createCsvArtifactResult, type CsvArtifactResult } from "../shared/mcp/csv.js";
 import {
   buildCollectionRetrievalMeta,
   buildSummaryCounts,
@@ -18,6 +19,8 @@ import type {
   SheetLinkResult,
   SheetLookupItem,
   SheetsFindResult,
+  SheetsReportFilters,
+  SheetsReportResult,
   SheetsResponse,
   SheetsSummaryResult
 } from "./models.js";
@@ -26,6 +29,8 @@ const SOURCE = "construction/sheets/v1";
 const SHEET_PAGE_LIMIT = 200;
 const MAX_SHEET_PAGE_FETCHES = 10;
 const DEFAULT_FIND_ROWS = 20;
+const DEFAULT_REPORT_LIMIT = 25;
+const MAX_REPORT_LIMIT = 50;
 
 interface NormalizedSheet {
   id?: string;
@@ -46,6 +51,10 @@ function createMeta(tool: string, projectId: string) {
     generatedAt: new Date().toISOString(),
     projectId
   };
+}
+
+function clampReportLimit(limit?: number): number {
+  return Math.max(1, Math.min(MAX_REPORT_LIMIT, Math.trunc(limit ?? DEFAULT_REPORT_LIMIT)));
 }
 
 function inferDisciplineFromSheetNumber(sheetNumber: string | undefined): string | undefined {
@@ -284,6 +293,92 @@ export async function getSheetSummary(input: {
     meta: createMeta("get_sheet_summary", projectId),
     warnings
   };
+}
+
+export async function getSheetsReport(input: {
+  projectId: string;
+  sessionKey?: string;
+  filters?: SheetsReportFilters;
+}): Promise<SheetsReportResult> {
+  const projectId = stripBPrefix(input.projectId);
+  const discipline = input.filters?.discipline?.trim() || undefined;
+  const query = input.filters?.query?.trim() || undefined;
+  const limit = clampReportLimit(input.filters?.limit);
+  const fetchResult = await fetchSheets(projectId, input.sessionKey, query);
+  const { records, warnings } = fetchResult;
+  const filtered = filterSheets(records, discipline, query);
+  const results = filtered.slice(0, limit).map(toLookupItem);
+  const breakdowns = {
+    byDiscipline: buildSummaryCounts(filtered.map((sheet) => sheet.discipline), "Unassigned")
+  };
+
+  if (filtered.length > results.length) {
+    warnings.push({
+      code: "sheet_report_truncated",
+      message: `Returned the first ${results.length} matching sheets to keep the report concise.`
+    });
+  }
+
+  return {
+    summary: {
+      totalSheets: filtered.length,
+      reportRows: results.length,
+      disciplinesTracked: breakdowns.byDiscipline.length,
+      linkReadySheets: filtered.filter((sheet) => Boolean(sheet.accUrl)).length
+    },
+    results,
+    breakdowns,
+    retrieval: buildCollectionRetrievalMeta({
+      totalFetched: records.length,
+      pageCount: fetchResult.pageCount,
+      sourceTruncated: fetchResult.sourceTruncated,
+      rowsAvailable: filtered.length,
+      rowsReturned: results.length
+    }),
+    filtersApplied: {
+      ...(discipline ? { discipline } : {}),
+      ...(query ? { query } : {}),
+      limit
+    },
+    meta: createMeta("get_sheets_report", projectId),
+    warnings
+  };
+}
+
+export async function exportSheetsCsv(input: {
+  projectId: string;
+  sessionKey?: string;
+  filters?: Omit<SheetsReportFilters, "limit">;
+}): Promise<CsvArtifactResult> {
+  const projectId = stripBPrefix(input.projectId);
+  const discipline = input.filters?.discipline?.trim() || undefined;
+  const query = input.filters?.query?.trim() || undefined;
+  const fetchResult = await fetchSheets(projectId, input.sessionKey, query);
+  const filtered = filterSheets(fetchResult.records, discipline, query);
+
+  return createCsvArtifactResult({
+    fileName: `sheets-${projectId}.csv`,
+    rows: filtered.map(toLookupItem),
+    columns: [
+      { header: "Sheet Number", value: (sheet) => sheet.sheetNumber },
+      { header: "Title", value: (sheet) => sheet.title },
+      { header: "Discipline", value: (sheet) => sheet.discipline },
+      { header: "Version Set", value: (sheet) => sheet.versionSet },
+      { header: "Tags", value: (sheet) => sheet.tags },
+      { header: "Updated At", value: (sheet) => sheet.updatedAt },
+      { header: "Published At", value: (sheet) => sheet.publishedAt },
+      { header: "ACC Link Available", value: (sheet) => sheet.linkAvailable }
+    ],
+    retrieval: buildCollectionRetrievalMeta({
+      totalFetched: fetchResult.records.length,
+      pageCount: fetchResult.pageCount,
+      sourceTruncated: fetchResult.sourceTruncated,
+      rowsAvailable: filtered.length,
+      rowsReturned: filtered.length
+    }),
+    warnings: fetchResult.warnings,
+    meta: createMeta("export_sheets_csv", projectId)
+  });
 }
 
 export async function getSheetLink(input: {

@@ -10,6 +10,9 @@ import { registerAccIssuesTools } from "./mcp-acc-issues/tools.js";
 import { registerAccRfisTools } from "./mcp-acc-rfis/tools.js";
 import { registerAccSheetsTools } from "./mcp-acc-sheets/tools.js";
 import { registerAccSubmittalsTools } from "./mcp-acc-submittals/tools.js";
+import { registerAccTransmittalsTools } from "./mcp-acc-transmittals/tools.js";
+import { registerApsViewerTools } from "./mcp-aps-viewer/tools.js";
+import { registerDataManagementTools } from "./mcp-data-management/tools.js";
 import { getAuthStatus } from "./shared/auth/apsAuth.js";
 import { createHttpApp } from "./shared/bootstrap/httpApp.js";
 import { runStdioServer } from "./shared/bootstrap/stdio.js";
@@ -72,6 +75,9 @@ export function createCombinedMcpServer(): McpServer {
   registerAccSheetsTools(server);
   registerAccRfisTools(server);
   registerAccSubmittalsTools(server);
+  registerAccTransmittalsTools(server);
+  registerDataManagementTools(server);
+  registerApsViewerTools(server);
 
   return server;
 }

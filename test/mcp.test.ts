@@ -6,6 +6,9 @@ import { registerAccIssuesTools } from "../src/mcp-acc-issues/tools.js";
 import { registerAccRfisTools } from "../src/mcp-acc-rfis/tools.js";
 import { registerAccSheetsTools } from "../src/mcp-acc-sheets/tools.js";
 import { registerAccSubmittalsTools } from "../src/mcp-acc-submittals/tools.js";
+import { registerAccTransmittalsTools } from "../src/mcp-acc-transmittals/tools.js";
+import { registerApsViewerTools } from "../src/mcp-aps-viewer/tools.js";
+import { registerDataManagementTools } from "../src/mcp-data-management/tools.js";
 
 describe("registerTools", () => {
   it("registers the account-admin tools", () => {
@@ -107,5 +110,55 @@ describe("registerTools", () => {
 
     const toolNames = registerTool.mock.calls.map((call) => call[0]).sort();
     expect(toolNames).toEqual(["find_forms", "get_forms_report", "get_forms_summary"]);
+  });
+
+  it("registers the transmittals tools", () => {
+    const registerTool = vi.fn();
+    const server = {
+      registerTool
+    };
+
+    registerAccTransmittalsTools(server as never);
+
+    const toolNames = registerTool.mock.calls.map((call) => call[0]).sort();
+    expect(toolNames).toEqual([
+      "find_transmittals",
+      "get_transmittal_details",
+      "get_transmittals_summary"
+    ]);
+  });
+
+  it("registers the data management tools", () => {
+    const registerTool = vi.fn();
+    const server = {
+      registerTool
+    };
+
+    registerDataManagementTools(server as never);
+
+    const toolNames = registerTool.mock.calls.map((call) => call[0]).sort();
+    expect(toolNames).toEqual([
+      "find_model_files",
+      "get_folder_contents",
+      "get_item",
+      "get_item_versions",
+      "get_top_folders"
+    ]);
+  });
+
+  it("registers the viewer tools", () => {
+    const registerTool = vi.fn();
+    const server = {
+      registerTool
+    };
+
+    registerApsViewerTools(server as never);
+
+    const toolNames = registerTool.mock.calls.map((call) => call[0]).sort();
+    expect(toolNames).toEqual([
+      "build_viewer_payload_from_item",
+      "build_viewer_payload_from_search",
+      "build_viewer_payload_from_version"
+    ]);
   });
 });

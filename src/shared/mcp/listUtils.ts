@@ -4,6 +4,17 @@ export function stripBPrefix(value: string): string {
   return value.trim().replace(/^b\./i, "");
 }
 
+export function ensureBPrefix(value: string): string {
+  const normalized = value.trim();
+  if (!normalized) {
+    return normalized;
+  }
+
+  return normalized.startsWith("b.") || normalized.startsWith("B.")
+    ? `b.${stripBPrefix(normalized)}`
+    : `b.${normalized}`;
+}
+
 export function toRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;

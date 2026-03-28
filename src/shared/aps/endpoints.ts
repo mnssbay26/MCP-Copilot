@@ -11,3 +11,7 @@ export const APS_CONSTRUCTION_FORMS_BASE_URL = `${APS_BASE_URL}/construction/for
 export const APS_CONSTRUCTION_SHEETS_BASE_URL = `${APS_BASE_URL}/construction/sheets/v1`;
 export const APS_CONSTRUCTION_RFIS_BASE_URL = `${APS_BASE_URL}/construction/rfis/v3`;
 export const APS_CONSTRUCTION_SUBMITTALS_BASE_URL = `${APS_BASE_URL}/construction/submittals/v2`;
+export const APS_CONSTRUCTION_TRANSMITTALS_BASE_URL = `${APS_BASE_URL}/construction/transmittals/v1`;
+export const APS_PROJECTS_BASE_URL = `${APS_BASE_URL}/project/v1`;
+export const APS_DATA_MANAGEMENT_BASE_URL = `${APS_BASE_URL}/data/v1`;
+export const APS_MODEL_DERIVATIVE_BASE_URL = `${APS_BASE_URL}/modelderivative/v2`;

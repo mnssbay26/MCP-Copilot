@@ -5,9 +5,9 @@ import {
   extractListRecords,
   normalizeListPagination,
   stripBPrefix,
-  toRecord,
   toStringValue
 } from "../shared/mcp/listUtils.js";
+import { createProjectUserEnricher, type ProjectUserEnricher } from "../shared/users/enrichment.js";
 import type { IssueSummary, IssuesResponse, RawIssue } from "./models.js";
 
 function clampLimit(limit = 10): number {
@@ -18,16 +18,17 @@ function clampOffset(offset = 0): number {
   return Math.max(0, Math.trunc(offset));
 }
 
-function resolveAssignedTo(value: RawIssue["assignedTo"]): string | undefined {
-  const entity = toRecord(value);
-  if (entity) {
-    return toStringValue(entity.name, entity.displayName, entity.email, entity.id);
-  }
-
-  return toStringValue(value);
+function resolveAssignedTo(
+  value: RawIssue["assignedTo"],
+  userEnricher: ProjectUserEnricher
+): string | undefined {
+  return userEnricher.resolveDisplayName(value);
 }
 
-function normalizeIssue(rawIssue: RawIssue): IssueSummary | null {
+function normalizeIssue(
+  rawIssue: RawIssue,
+  userEnricher: ProjectUserEnricher
+): IssueSummary | null {
   const rawId = toStringValue(rawIssue.id);
   const displayId = toStringValue(rawIssue.displayId);
   const id = rawId ?? displayId;
@@ -41,7 +42,7 @@ function normalizeIssue(rawIssue: RawIssue): IssueSummary | null {
     displayId,
     title: toStringValue(rawIssue.title),
     status: toStringValue(rawIssue.status),
-    assignedTo: resolveAssignedTo(rawIssue.assignedTo),
+    assignedTo: resolveAssignedTo(rawIssue.assignedTo, userEnricher),
     dueDate: toStringValue(rawIssue.dueDate),
     createdAt: toStringValue(rawIssue.createdAt)
   };
@@ -84,8 +85,10 @@ export async function getIssues(input: {
   });
 
   const extracted = extractListRecords<RawIssue>(rawResponse);
+  const userEnricher = createProjectUserEnricher({ projectId });
+  await userEnricher.prime(extracted.records.map((issue) => issue.assignedTo));
   const normalized = extracted.records
-    .map(normalizeIssue)
+    .map((issue) => normalizeIssue(issue, userEnricher))
     .filter((issue): issue is IssueSummary => issue !== null);
 
   return {
@@ -102,6 +105,9 @@ export async function getIssues(input: {
       generatedAt: new Date().toISOString(),
       projectId
     },
-    warnings: buildWarnings(extracted.warnings, extracted.records.length - normalized.length)
+    warnings: buildWarnings(
+      [...extracted.warnings, ...userEnricher.warnings],
+      extracted.records.length - normalized.length
+    )
   };
 }

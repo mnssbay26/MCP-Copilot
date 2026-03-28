@@ -13,6 +13,10 @@ import {
   toStringArray,
   toStringValue
 } from "../shared/mcp/listUtils.js";
+import {
+  createProjectUserEnricher,
+  type ProjectUserEnricher
+} from "../shared/users/enrichment.js";
 import type {
   AssetCategoriesResponse,
   AssetCustomAttributesResponse,
@@ -175,13 +179,16 @@ function resolveStatusLabel(
   );
 }
 
-function resolveAssignedTo(rawAsset: RawAsset): string | undefined {
+function resolveAssignedTo(
+  rawAsset: RawAsset,
+  userEnricher: ProjectUserEnricher
+): string | undefined {
   return (
-    resolveSafeDisplayValue(rawAsset.assignedTo) ??
-    resolveSafeDisplayValue(rawAsset.assignee) ??
-    resolveSafeDisplayValue(rawAsset.owner) ??
-    resolveSafeDisplayValue(rawAsset.responsibleUser) ??
-    resolveSafeDisplayValue(rawAsset.createdBy)
+    userEnricher.resolveDisplayName(rawAsset.assignedTo) ??
+    userEnricher.resolveDisplayName(rawAsset.assignee) ??
+    userEnricher.resolveDisplayName(rawAsset.owner) ??
+    userEnricher.resolveDisplayName(rawAsset.responsibleUser) ??
+    userEnricher.resolveDisplayName(rawAsset.createdBy)
   );
 }
 
@@ -305,6 +312,7 @@ function normalizeCustomAttributes(
 function normalizeAsset(
   rawAsset: RawAsset,
   metadata: AssetMetadataMaps,
+  userEnricher: ProjectUserEnricher,
   requestedAttributeNames?: string[]
 ): NormalizedAsset {
   return {
@@ -315,10 +323,10 @@ function normalizeAsset(
         rawAsset.displayName,
         rawAsset.identifier,
         rawAsset.assetNumber
-      ) ?? "Untitled Asset",
+    ) ?? "Untitled Asset",
     category: resolveCategoryLabel(rawAsset, metadata.categoryLabelsById),
     status: resolveStatusLabel(rawAsset, metadata.statusLabelsById),
-    assignedTo: resolveAssignedTo(rawAsset),
+    assignedTo: resolveAssignedTo(rawAsset, userEnricher),
     company: resolveCompany(rawAsset),
     location: resolveLocation(rawAsset),
     createdAt: toStringValue(rawAsset.createdAt),
@@ -604,6 +612,19 @@ async function loadAssetContext(input: {
   const customAttributeLabelsByKey = buildCustomAttributeLabelsByKey(
     customAttributeDefinitions.records
   );
+  const userEnricher = createProjectUserEnricher({
+    projectId,
+    sessionKey: input.sessionKey
+  });
+  await userEnricher.prime(
+    rawAssets.flatMap((asset) => [
+      asset.assignedTo,
+      asset.assignee,
+      asset.owner,
+      asset.responsibleUser,
+      asset.createdBy
+    ])
+  );
   const metadata: AssetMetadataMaps = {
     categoryLabelsById,
     statusLabelsById,
@@ -611,7 +632,7 @@ async function loadAssetContext(input: {
   };
 
   const normalizedAssets = rawAssets.map((asset) =>
-    normalizeAsset(asset, metadata, filters.attributeNames)
+    normalizeAsset(asset, metadata, userEnricher, filters.attributeNames)
   );
   const filteredAssets = filterAssets(normalizedAssets, filters);
   const availableCustomAttributes = [...new Set(customAttributeLabelsByKey.values())].sort(
@@ -621,7 +642,7 @@ async function loadAssetContext(input: {
   return {
     filtersApplied: filters,
     assets: filteredAssets,
-    warnings,
+    warnings: [...warnings, ...userEnricher.warnings],
     meta: {
       source: SOURCE,
       generatedAt: new Date().toISOString(),

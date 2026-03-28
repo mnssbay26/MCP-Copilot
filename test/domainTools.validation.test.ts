@@ -5,6 +5,9 @@ import { registerAccFormsTools } from "../src/mcp-acc-forms/tools.js";
 import { registerAccRfisTools } from "../src/mcp-acc-rfis/tools.js";
 import { registerAccSheetsTools } from "../src/mcp-acc-sheets/tools.js";
 import { registerAccSubmittalsTools } from "../src/mcp-acc-submittals/tools.js";
+import { registerAccTransmittalsTools } from "../src/mcp-acc-transmittals/tools.js";
+import { registerApsViewerTools } from "../src/mcp-aps-viewer/tools.js";
+import { registerDataManagementTools } from "../src/mcp-data-management/tools.js";
 
 function getHandler(
   registerTools: (server: never) => void,
@@ -56,6 +59,27 @@ describe("domain tool validation", () => {
   it("rejects invalid forms input", async () => {
     const handler = getHandler(registerAccFormsTools, "get_forms_summary");
     const response = await handler({ projectId: "" });
+
+    expect(response.isError).toBe(true);
+  });
+
+  it("rejects invalid transmittals input", async () => {
+    const handler = getHandler(registerAccTransmittalsTools, "get_transmittal_details");
+    const response = await handler({ projectId: "project-1", transmittalId: "" });
+
+    expect(response.isError).toBe(true);
+  });
+
+  it("rejects invalid data management input", async () => {
+    const handler = getHandler(registerDataManagementTools, "find_model_files");
+    const response = await handler({ projectId: "project-1", extensions: [] });
+
+    expect(response.isError).toBe(true);
+  });
+
+  it("rejects invalid viewer input", async () => {
+    const handler = getHandler(registerApsViewerTools, "build_viewer_payload_from_version");
+    const response = await handler({ projectId: "project-1" });
 
     expect(response.isError).toBe(true);
   });

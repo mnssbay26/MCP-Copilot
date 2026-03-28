@@ -10,6 +10,10 @@ import {
   toStringArray,
   toStringValue
 } from "../shared/mcp/listUtils.js";
+import {
+  createProjectUserEnricher,
+  type ProjectUserEnricher
+} from "../shared/users/enrichment.js";
 import type {
   FindRfisResult,
   RawRfi,
@@ -352,6 +356,7 @@ function normalizeRfi(
   rawRfi: RawRfi,
   typeLabelsById: Map<string, string>,
   attributeLabelsByKey: Map<string, string>,
+  userEnricher: ProjectUserEnricher,
   requestedAttributeNames?: string[]
 ): NormalizedRfi {
   return {
@@ -367,9 +372,9 @@ function normalizeRfi(
     status: toStringValue(rawRfi.status, rawRfi.statusName) ?? "Unspecified",
     type: resolveTypeLabel(rawRfi, typeLabelsById),
     assignedTo:
-      resolveSafeDisplayValue(rawRfi.assignedTo) ??
-      resolveSafeDisplayValue(rawRfi.manager) ??
-      resolveSafeDisplayValue(rawRfi.reviewer),
+      userEnricher.resolveDisplayName(rawRfi.assignedTo) ??
+      userEnricher.resolveDisplayName(rawRfi.manager) ??
+      userEnricher.resolveDisplayName(rawRfi.reviewer),
     dueDate: toStringValue(rawRfi.dueDate),
     createdAt: toStringValue(rawRfi.createdAt),
     updatedAt: toStringValue(rawRfi.updatedAt, rawRfi.modifiedAt),
@@ -427,10 +432,33 @@ async function loadRfiContext(input: {
     ...typesResult.warnings,
     ...attributesResult.warnings
   ];
+  const userEnricher = createProjectUserEnricher({
+    projectId,
+    sessionKey: input.sessionKey
+  });
+  await userEnricher.prime(
+    rfiResult.records.flatMap((rfi) => [
+      rfi.assignedTo,
+      rfi.manager,
+      rfi.reviewer,
+      rfi.createdBy,
+      rfi.updatedBy,
+      rfi.openedBy,
+      rfi.closedBy,
+      rfi.deletedBy,
+      rfi.watchers
+    ])
+  );
   const typeLabelsById = buildTypeLabelsById(typesResult.records);
   const attributeLabelsByKey = buildAttributeLabelsByKey(attributesResult.records);
   const normalized = rfiResult.records.map((rfi) =>
-    normalizeRfi(rfi, typeLabelsById, attributeLabelsByKey, filters.attributeNames)
+    normalizeRfi(
+      rfi,
+      typeLabelsById,
+      attributeLabelsByKey,
+      userEnricher,
+      filters.attributeNames
+    )
   );
 
   return {
@@ -439,7 +467,7 @@ async function loadRfiContext(input: {
     availableCustomAttributes: [...new Set(attributeLabelsByKey.values())].sort((a, b) =>
       a.localeCompare(b)
     ),
-    warnings,
+    warnings: [...warnings, ...userEnricher.warnings],
     meta: {
       source: SOURCE,
       generatedAt: new Date().toISOString(),

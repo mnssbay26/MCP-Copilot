@@ -8,6 +8,10 @@ import {
   toRecord,
   toStringValue
 } from "../shared/mcp/listUtils.js";
+import {
+  createProjectUserEnricher,
+  type ProjectUserEnricher
+} from "../shared/users/enrichment.js";
 import type {
   FindSubmittalsResult,
   RawSubmittalItem,
@@ -229,7 +233,8 @@ function resolveSpecSection(
 
 function normalizeSubmittal(
   rawItem: RawSubmittalItem,
-  specLabelsById: Map<string, string>
+  specLabelsById: Map<string, string>,
+  userEnricher: ProjectUserEnricher
 ): NormalizedSubmittal {
   return {
     identifier:
@@ -243,8 +248,8 @@ function normalizeSubmittal(
     status: resolveStatus(rawItem),
     specSection: resolveSpecSection(rawItem, specLabelsById),
     manager:
-      resolveSafeDisplayValue(rawItem.manager) ??
-      resolveSafeDisplayValue(rawItem.submittedBy) ??
+      userEnricher.resolveDisplayName(rawItem.manager) ??
+      userEnricher.resolveDisplayName(rawItem.submittedBy) ??
       resolveSafeDisplayValue(rawItem.subcontractor),
     response:
       toStringValue(
@@ -298,13 +303,27 @@ async function loadSubmittalContext(input: {
     fetchSpecs(projectId, input.sessionKey)
   ]);
   const warnings = [...itemsResult.warnings, ...specsResult.warnings];
+  const userEnricher = createProjectUserEnricher({
+    projectId,
+    sessionKey: input.sessionKey
+  });
+  await userEnricher.prime(
+    itemsResult.records.flatMap((item) => [
+      item.manager,
+      item.submittedBy,
+      item.createdBy,
+      item.updatedBy
+    ])
+  );
   const specLabelsById = buildSpecLabelsById(specsResult.records);
-  const normalized = itemsResult.records.map((item) => normalizeSubmittal(item, specLabelsById));
+  const normalized = itemsResult.records.map((item) =>
+    normalizeSubmittal(item, specLabelsById, userEnricher)
+  );
 
   return {
     filtersApplied: filters,
     items: filterSubmittals(normalized, filters),
-    warnings,
+    warnings: [...warnings, ...userEnricher.warnings],
     meta: {
       source: SOURCE,
       generatedAt: new Date().toISOString(),

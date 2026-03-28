@@ -32,9 +32,25 @@ const BuildViewerPayloadFromVersionInputSchema = z
       .describe("The version URN to convert directly into a viewer-ready payload."),
     sessionKey: SessionKeySchema.optional()
   })
-  .refine((value) => Boolean(value.versionId || value.versionUrn), {
-    message: "Provide either versionId or versionUrn.",
-    path: ["versionId"]
+  .superRefine((value, ctx) => {
+    const providedCount = [value.versionId, value.versionUrn].filter(Boolean).length;
+
+    if (providedCount === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Provide exactly one of versionId or versionUrn.",
+        path: ["versionId"]
+      });
+      return;
+    }
+
+    if (providedCount > 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Provide exactly one of versionId or versionUrn, not both.",
+        path: ["versionId"]
+      });
+    }
   });
 
 const BuildViewerPayloadFromItemInputSchema = z.object({

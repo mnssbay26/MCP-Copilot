@@ -1,5 +1,8 @@
 import type { ApsListEnvelope } from "../shared/aps/models.js";
-import type { SummaryCount } from "../shared/mcp/reporting.js";
+import type {
+  CollectionRetrievalMeta,
+  SummaryCount
+} from "../shared/mcp/reporting.js";
 import type { ToolWarning } from "../shared/mcp/toolResult.js";
 
 export interface RawFormTemplate extends Record<string, unknown> {
@@ -38,6 +41,8 @@ export interface FormsFilters {
   limit?: number;
 }
 
+export type FormsSearchFilters = Omit<FormsFilters, "query">;
+
 export interface FormsSummaryResult {
   summary: {
     totalForms: number;
@@ -50,6 +55,7 @@ export interface FormsSummaryResult {
     byTemplateType: SummaryCount[];
     byTemplateName: SummaryCount[];
   };
+  retrieval: CollectionRetrievalMeta;
   filtersApplied: FormsFilters;
   meta: {
     tool: string;
@@ -84,6 +90,7 @@ export interface FormsReportResult {
     byTemplateType: SummaryCount[];
     byTemplateName: SummaryCount[];
   };
+  retrieval: CollectionRetrievalMeta;
   filtersApplied: FormsFilters;
   meta: {
     tool: string;
@@ -102,6 +109,7 @@ export interface FindFormsResult {
     templateTypesTracked: number;
   };
   results: FormLookupItem[];
+  retrieval: CollectionRetrievalMeta;
   filtersApplied: FormsFilters;
   meta: {
     tool: string;

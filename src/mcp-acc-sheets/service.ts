@@ -1,6 +1,10 @@
 import { requestApsJson } from "../shared/aps/client.js";
 import { APS_CONSTRUCTION_SHEETS_BASE_URL } from "../shared/aps/endpoints.js";
-import { buildSummaryCounts, matchesSearchTerm } from "../shared/mcp/reporting.js";
+import {
+  buildCollectionRetrievalMeta,
+  buildSummaryCounts,
+  matchesSearchTerm
+} from "../shared/mcp/reporting.js";
 import type { ToolWarning } from "../shared/mcp/toolResult.js";
 import {
   extractListRecords,
@@ -124,11 +128,18 @@ async function fetchSheets(
   projectId: string,
   sessionKey?: string,
   query?: string
-): Promise<{ records: NormalizedSheet[]; warnings: ToolWarning[] }> {
+): Promise<{
+  records: NormalizedSheet[];
+  warnings: ToolWarning[];
+  pageCount: number;
+  sourceTruncated: boolean;
+}> {
   const records: NormalizedSheet[] = [];
   const warnings: ToolWarning[] = [];
+  let pageCount = 0;
 
   for (let pageIndex = 0; pageIndex < MAX_SHEET_PAGE_FETCHES; pageIndex += 1) {
+    pageCount += 1;
     const offset = pageIndex * SHEET_PAGE_LIMIT;
     const url = new URL(
       `${APS_CONSTRUCTION_SHEETS_BASE_URL}/projects/${encodeURIComponent(projectId)}/sheets`
@@ -153,7 +164,7 @@ async function fetchSheets(
     records.push(...normalized);
 
     if (extracted.records.length < SHEET_PAGE_LIMIT) {
-      return { records, warnings };
+      return { records, warnings, pageCount, sourceTruncated: false };
     }
   }
 
@@ -162,7 +173,7 @@ async function fetchSheets(
     message: `Stopped after ${MAX_SHEET_PAGE_FETCHES} sheet pages to keep the response bounded.`
   });
 
-  return { records, warnings };
+  return { records, warnings, pageCount, sourceTruncated: true };
 }
 
 function filterSheets(
@@ -213,7 +224,8 @@ export async function findSheets(input: {
   const projectId = stripBPrefix(input.projectId);
   const discipline = input.discipline?.trim() || undefined;
   const query = input.query?.trim() || undefined;
-  const { records, warnings } = await fetchSheets(projectId, input.sessionKey, query);
+  const fetchResult = await fetchSheets(projectId, input.sessionKey, query);
+  const { records, warnings } = fetchResult;
   const filtered = filterSheets(records, discipline, query);
   const results = filtered.slice(0, DEFAULT_FIND_ROWS).map(toLookupItem);
 
@@ -232,6 +244,13 @@ export async function findSheets(input: {
       returnedRows: results.length
     },
     results,
+    retrieval: buildCollectionRetrievalMeta({
+      totalFetched: records.length,
+      pageCount: fetchResult.pageCount,
+      sourceTruncated: fetchResult.sourceTruncated,
+      rowsAvailable: filtered.length,
+      rowsReturned: results.length
+    }),
     filtersApplied: {
       ...(discipline ? { discipline } : {}),
       ...(query ? { query } : {})
@@ -246,7 +265,8 @@ export async function getSheetSummary(input: {
   sessionKey?: string;
 }): Promise<SheetsSummaryResult> {
   const projectId = stripBPrefix(input.projectId);
-  const { records, warnings } = await fetchSheets(projectId, input.sessionKey);
+  const fetchResult = await fetchSheets(projectId, input.sessionKey);
+  const { records, warnings } = fetchResult;
   const results = buildSummaryCounts(records.map((sheet) => sheet.discipline), "Unassigned");
 
   return {
@@ -256,6 +276,11 @@ export async function getSheetSummary(input: {
       linkReadySheets: records.filter((sheet) => Boolean(sheet.accUrl)).length
     },
     results,
+    retrieval: buildCollectionRetrievalMeta({
+      totalFetched: records.length,
+      pageCount: fetchResult.pageCount,
+      sourceTruncated: fetchResult.sourceTruncated
+    }),
     meta: createMeta("get_sheet_summary", projectId),
     warnings
   };

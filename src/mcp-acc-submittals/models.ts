@@ -1,5 +1,8 @@
 import type { ApsListEnvelope } from "../shared/aps/models.js";
-import type { SummaryCount } from "../shared/mcp/reporting.js";
+import type {
+  CollectionRetrievalMeta,
+  SummaryCount
+} from "../shared/mcp/reporting.js";
 import type { ToolWarning } from "../shared/mcp/toolResult.js";
 
 export interface RawSubmittalItem extends Record<string, unknown> {
@@ -47,6 +50,7 @@ export interface SubmittalsSummaryResult {
     byStatus: SummaryCount[];
     bySpecSection: SummaryCount[];
   };
+  retrieval: CollectionRetrievalMeta;
   filtersApplied: SubmittalsFilters;
   meta: {
     tool: string;
@@ -63,6 +67,7 @@ export interface SubmittalsBreakdownResult {
     distinctGroups: number;
   };
   results: SummaryCount[];
+  retrieval: CollectionRetrievalMeta;
   filtersApplied: SubmittalsFilters;
   meta: {
     tool: string;
@@ -85,6 +90,7 @@ export interface SubmittalsReportResult {
     byStatus: SummaryCount[];
     bySpecSection: SummaryCount[];
   };
+  retrieval: CollectionRetrievalMeta;
   filtersApplied: SubmittalsFilters;
   meta: {
     tool: string;
@@ -103,6 +109,7 @@ export interface FindSubmittalsResult {
     specSectionsTracked: number;
   };
   results: SubmittalLookupItem[];
+  retrieval: CollectionRetrievalMeta;
   filtersApplied: {
     query?: string;
   };

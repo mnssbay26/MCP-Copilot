@@ -26,6 +26,14 @@ beforeEach(async () => {
     obtainedAt: Date.now(),
     expiresAt: Date.now() + 300_000
   });
+  await defaultTokenCache.set("session-issues", {
+    accessToken: "issues-token",
+    refreshToken: "refresh-token",
+    tokenType: "Bearer",
+    scope: ["data:read", "account:read"],
+    obtainedAt: Date.now(),
+    expiresAt: Date.now() + 300_000
+  });
 });
 
 afterEach(async () => {
@@ -70,10 +78,16 @@ describe("issues service", () => {
     const result = await getIssues({
       projectId: "b.project-1",
       limit: 10,
-      offset: 0
+      offset: 0,
+      sessionKey: "session-issues"
     });
 
     expect(fetchImpl.mock.calls[0]?.[0]).toContain("/projects/project-1/issues");
+    expect(
+      (fetchImpl.mock.calls[0]?.[1] as RequestInit).headers as Record<string, string>
+    ).toMatchObject({
+      Authorization: "Bearer issues-token"
+    });
     expect(result.results[0]).toMatchObject({
       id: "issue-1",
       displayId: "42",

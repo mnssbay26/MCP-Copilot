@@ -1,6 +1,11 @@
 import { requestApsJson } from "../shared/aps/client.js";
 import { APS_CONSTRUCTION_FORMS_BASE_URL } from "../shared/aps/endpoints.js";
-import { buildSummaryCounts, matchesFilterValue, matchesSearchTerm } from "../shared/mcp/reporting.js";
+import {
+  buildCollectionRetrievalMeta,
+  buildSummaryCounts,
+  matchesFilterValue,
+  matchesSearchTerm
+} from "../shared/mcp/reporting.js";
 import type { ToolWarning } from "../shared/mcp/toolResult.js";
 import {
   extractListRecords,
@@ -12,6 +17,7 @@ import type {
   FindFormsResult,
   FormLookupItem,
   FormsFilters,
+  FormsSearchFilters,
   FormsReportResult,
   FormsResponse,
   FormsSummaryResult,
@@ -42,6 +48,11 @@ interface FormsContext {
   filtersApplied: FormsFilters;
   forms: NormalizedForm[];
   warnings: ToolWarning[];
+  retrieval: {
+    totalFetched: number;
+    pageCount: number;
+    sourceTruncated: boolean;
+  };
   meta: {
     source: string;
     generatedAt: string;
@@ -196,11 +207,18 @@ async function fetchForms(
   projectId: string,
   sessionKey?: string,
   statuses?: string[]
-): Promise<{ records: RawFormItem[]; warnings: ToolWarning[] }> {
+): Promise<{
+  records: RawFormItem[];
+  warnings: ToolWarning[];
+  pageCount: number;
+  sourceTruncated: boolean;
+}> {
   const records: RawFormItem[] = [];
   const warnings: ToolWarning[] = [];
+  let pageCount = 0;
 
   for (let pageIndex = 0; pageIndex < MAX_PAGE_FETCHES; pageIndex += 1) {
+    pageCount += 1;
     const offset = pageIndex * PAGE_LIMIT;
     const url = new URL(
       `${APS_CONSTRUCTION_FORMS_BASE_URL}/projects/${encodeURIComponent(projectId)}/forms`
@@ -222,7 +240,7 @@ async function fetchForms(
     warnings.push(...extracted.warnings);
 
     if (extracted.records.length < PAGE_LIMIT) {
-      return { records, warnings };
+      return { records, warnings, pageCount, sourceTruncated: false };
     }
   }
 
@@ -230,7 +248,7 @@ async function fetchForms(
     code: "forms_page_fetch_limit_reached",
     message: `Stopped after ${MAX_PAGE_FETCHES} pages to keep the response bounded.`
   });
-  return { records, warnings };
+  return { records, warnings, pageCount, sourceTruncated: true };
 }
 
 function buildTemplateMap(rawTemplates: RawFormTemplate[]): Map<string, NormalizedTemplate> {
@@ -347,6 +365,11 @@ async function loadFormsContext(input: {
     filtersApplied: filters,
     forms: filterForms(normalizedForms, filters),
     warnings,
+    retrieval: {
+      totalFetched: formsResult.records.length,
+      pageCount: formsResult.pageCount,
+      sourceTruncated: formsResult.sourceTruncated
+    },
     meta: {
       source: SOURCE,
       generatedAt: new Date().toISOString(),
@@ -379,6 +402,11 @@ export async function getFormsSummary(input: {
       templatesTracked: breakdowns.byTemplateName.length
     },
     results: breakdowns,
+    retrieval: buildCollectionRetrievalMeta({
+      totalFetched: context.retrieval.totalFetched,
+      pageCount: context.retrieval.pageCount,
+      sourceTruncated: context.retrieval.sourceTruncated
+    }),
     filtersApplied: context.filtersApplied,
     meta: {
       ...context.meta,
@@ -392,7 +420,7 @@ export async function findForms(input: {
   projectId: string;
   query?: string;
   sessionKey?: string;
-  filters?: FormsFilters;
+  filters?: FormsSearchFilters;
 }): Promise<FindFormsResult> {
   const context = await loadFormsContext({
     projectId: input.projectId,
@@ -422,6 +450,13 @@ export async function findForms(input: {
       templateTypesTracked: breakdowns.byTemplateType.length
     },
     results,
+    retrieval: buildCollectionRetrievalMeta({
+      totalFetched: context.retrieval.totalFetched,
+      pageCount: context.retrieval.pageCount,
+      sourceTruncated: context.retrieval.sourceTruncated,
+      rowsAvailable: context.forms.length,
+      rowsReturned: results.length
+    }),
     filtersApplied: context.filtersApplied,
     meta: {
       ...context.meta,
@@ -458,6 +493,13 @@ export async function getFormsReport(input: {
     },
     results,
     breakdowns,
+    retrieval: buildCollectionRetrievalMeta({
+      totalFetched: context.retrieval.totalFetched,
+      pageCount: context.retrieval.pageCount,
+      sourceTruncated: context.retrieval.sourceTruncated,
+      rowsAvailable: context.forms.length,
+      rowsReturned: results.length
+    }),
     filtersApplied: {
       ...context.filtersApplied,
       limit

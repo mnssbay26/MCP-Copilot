@@ -1,6 +1,11 @@
 import { requestApsJson } from "../shared/aps/client.js";
 import { APS_CONSTRUCTION_SUBMITTALS_BASE_URL } from "../shared/aps/endpoints.js";
-import { buildSummaryCounts, matchesFilterValue, matchesSearchTerm } from "../shared/mcp/reporting.js";
+import {
+  buildCollectionRetrievalMeta,
+  buildSummaryCounts,
+  matchesFilterValue,
+  matchesSearchTerm
+} from "../shared/mcp/reporting.js";
 import type { ToolWarning } from "../shared/mcp/toolResult.js";
 import {
   extractListRecords,
@@ -47,6 +52,11 @@ interface SubmittalContext {
   filtersApplied: SubmittalsFilters;
   items: NormalizedSubmittal[];
   warnings: ToolWarning[];
+  retrieval: {
+    totalFetched: number;
+    pageCount: number;
+    sourceTruncated: boolean;
+  };
   meta: {
     source: string;
     generatedAt: string;
@@ -125,11 +135,18 @@ async function fetchPagedList<TRecord extends Record<string, unknown>>(
   urlFactory: (offset: number) => string,
   serviceName: string,
   sessionKey?: string
-): Promise<{ records: TRecord[]; warnings: ToolWarning[] }> {
+): Promise<{
+  records: TRecord[];
+  warnings: ToolWarning[];
+  pageCount: number;
+  sourceTruncated: boolean;
+}> {
   const records: TRecord[] = [];
   const warnings: ToolWarning[] = [];
+  let pageCount = 0;
 
   for (let pageIndex = 0; pageIndex < MAX_PAGE_FETCHES; pageIndex += 1) {
+    pageCount += 1;
     const offset = pageIndex * PAGE_LIMIT;
     const rawResponse = await requestApsJson<
       SubmittalsResponse | SubmittalSpecsResponse
@@ -143,7 +160,7 @@ async function fetchPagedList<TRecord extends Record<string, unknown>>(
     records.push(...extracted.records);
 
     if (extracted.records.length < PAGE_LIMIT) {
-      return { records, warnings };
+      return { records, warnings, pageCount, sourceTruncated: false };
     }
   }
 
@@ -151,14 +168,19 @@ async function fetchPagedList<TRecord extends Record<string, unknown>>(
     code: "submittal_page_fetch_limit_reached",
     message: `Stopped after ${MAX_PAGE_FETCHES} pages to keep the response bounded.`
   });
-  return { records, warnings };
+  return { records, warnings, pageCount, sourceTruncated: true };
 }
 
 async function fetchSubmittalItems(
   projectId: string,
   sessionKey?: string,
   query?: string
-): Promise<{ records: RawSubmittalItem[]; warnings: ToolWarning[] }> {
+): Promise<{
+  records: RawSubmittalItem[];
+  warnings: ToolWarning[];
+  pageCount: number;
+  sourceTruncated: boolean;
+}> {
   return fetchPagedList<RawSubmittalItem>(
     (offset) => {
       const url = new URL(
@@ -179,7 +201,12 @@ async function fetchSubmittalItems(
 async function fetchSpecs(
   projectId: string,
   sessionKey?: string
-): Promise<{ records: RawSubmittalSpec[]; warnings: ToolWarning[] }> {
+): Promise<{
+  records: RawSubmittalSpec[];
+  warnings: ToolWarning[];
+  pageCount: number;
+  sourceTruncated: boolean;
+}> {
   return fetchPagedList<RawSubmittalSpec>(
     (offset) => {
       const url = new URL(
@@ -324,6 +351,11 @@ async function loadSubmittalContext(input: {
     filtersApplied: filters,
     items: filterSubmittals(normalized, filters),
     warnings: [...warnings, ...userEnricher.warnings],
+    retrieval: {
+      totalFetched: itemsResult.records.length,
+      pageCount: itemsResult.pageCount,
+      sourceTruncated: itemsResult.sourceTruncated
+    },
     meta: {
       source: SOURCE,
       generatedAt: new Date().toISOString(),
@@ -354,6 +386,11 @@ export async function getSubmittalsSummary(input: {
       specSectionsTracked: breakdowns.bySpecSection.length
     },
     results: breakdowns,
+    retrieval: buildCollectionRetrievalMeta({
+      totalFetched: context.retrieval.totalFetched,
+      pageCount: context.retrieval.pageCount,
+      sourceTruncated: context.retrieval.sourceTruncated
+    }),
     filtersApplied: context.filtersApplied,
     meta: {
       ...context.meta,
@@ -380,6 +417,11 @@ export async function getSubmittalsBySpec(input: {
       distinctGroups: results.length
     },
     results,
+    retrieval: buildCollectionRetrievalMeta({
+      totalFetched: context.retrieval.totalFetched,
+      pageCount: context.retrieval.pageCount,
+      sourceTruncated: context.retrieval.sourceTruncated
+    }),
     filtersApplied: context.filtersApplied,
     meta: {
       ...context.meta,
@@ -416,6 +458,13 @@ export async function getSubmittalsReport(input: {
     },
     results,
     breakdowns,
+    retrieval: buildCollectionRetrievalMeta({
+      totalFetched: context.retrieval.totalFetched,
+      pageCount: context.retrieval.pageCount,
+      sourceTruncated: context.retrieval.sourceTruncated,
+      rowsAvailable: context.items.length,
+      rowsReturned: results.length
+    }),
     filtersApplied: {
       ...context.filtersApplied,
       limit
@@ -460,6 +509,13 @@ export async function findSubmittals(input: {
       specSectionsTracked: breakdowns.bySpecSection.length
     },
     results,
+    retrieval: buildCollectionRetrievalMeta({
+      totalFetched: context.retrieval.totalFetched,
+      pageCount: context.retrieval.pageCount,
+      sourceTruncated: context.retrieval.sourceTruncated,
+      rowsAvailable: context.items.length,
+      rowsReturned: results.length
+    }),
     filtersApplied: {
       ...(context.filtersApplied.query ? { query: context.filtersApplied.query } : {})
     },

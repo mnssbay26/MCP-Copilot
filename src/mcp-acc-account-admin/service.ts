@@ -139,6 +139,7 @@ export async function getProjects(input: {
   limit?: number;
   offset?: number;
   region?: RegionValue;
+  sessionKey?: string;
 } = {}): Promise<ListToolResult<ProjectSummary>> {
   const config = getConfig();
   const accountId = stripBPrefix(config.apsAccountId);
@@ -154,7 +155,8 @@ export async function getProjects(input: {
 
   const rawResponse = await requestApsJson<AccProjectsResponse>(url.toString(), {
     headers: buildRegionHeaders(region),
-    serviceName: "mcpAccAccountAdmin.getProjects"
+    serviceName: "mcpAccAccountAdmin.getProjects",
+    sessionKey: input.sessionKey
   });
 
   const extracted = extractListRecords<RawAccProject>(rawResponse);
@@ -185,6 +187,7 @@ export async function getUsers(input: {
   limit?: number;
   offset?: number;
   region?: RegionValue;
+  sessionKey?: string;
 }): Promise<ListToolResult<ProjectUserSummary>> {
   const config = getConfig();
   const projectId = stripBPrefix(input.projectId);
@@ -200,7 +203,8 @@ export async function getUsers(input: {
 
   const rawResponse = await requestApsJson<AccProjectUsersResponse>(url.toString(), {
     headers: buildRegionHeaders(region),
-    serviceName: "mcpAccAccountAdmin.getUsers"
+    serviceName: "mcpAccAccountAdmin.getUsers",
+    sessionKey: input.sessionKey
   });
 
   const extracted = extractListRecords<RawAccProjectUser>(rawResponse);

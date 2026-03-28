@@ -57,5 +57,10 @@ describe("sheets service", () => {
       { label: "A", count: 1, percentage: 50 },
       { label: "S", count: 1, percentage: 50 }
     ]);
+    expect(result.retrieval).toMatchObject({
+      totalFetched: 2,
+      pageCount: 1,
+      truncated: false
+    });
   });
 });

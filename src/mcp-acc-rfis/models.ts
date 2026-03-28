@@ -1,5 +1,8 @@
 import type { ApsListEnvelope } from "../shared/aps/models.js";
-import type { SummaryCount } from "../shared/mcp/reporting.js";
+import type {
+  CollectionRetrievalMeta,
+  SummaryCount
+} from "../shared/mcp/reporting.js";
 import type { ToolWarning } from "../shared/mcp/toolResult.js";
 
 export interface RawRfi extends Record<string, unknown> {
@@ -59,6 +62,7 @@ export interface RfisSummaryResult {
     byType: SummaryCount[];
     byAging: SummaryCount[];
   };
+  retrieval: CollectionRetrievalMeta;
   filtersApplied: RfisFilters;
   meta: {
     tool: string;
@@ -75,6 +79,7 @@ export interface RfisBreakdownResult {
     distinctGroups: number;
   };
   results: SummaryCount[];
+  retrieval: CollectionRetrievalMeta;
   filtersApplied: RfisFilters;
   meta: {
     tool: string;
@@ -98,6 +103,7 @@ export interface RfisReportResult {
     byType: SummaryCount[];
     byAging: SummaryCount[];
   };
+  retrieval: CollectionRetrievalMeta;
   availableCustomAttributes: string[];
   filtersApplied: RfisFilters;
   meta: {
@@ -117,6 +123,7 @@ export interface FindRfisResult {
     typesTracked: number;
   };
   results: RfiLookupItem[];
+  retrieval: CollectionRetrievalMeta;
   filtersApplied: {
     query?: string;
   };

@@ -59,6 +59,15 @@ describe("accAdmin service", () => {
   }
 
   it("calls the projects endpoint and normalizes account IDs", async () => {
+    await defaultTokenCache.set("session-a", {
+      accessToken: "session-token",
+      refreshToken: "refresh-token",
+      tokenType: "Bearer",
+      scope: ["data:read", "account:read"],
+      obtainedAt: Date.now(),
+      expiresAt: Date.now() + 300_000
+    });
+
     const fetchImpl = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -86,14 +95,14 @@ describe("accAdmin service", () => {
 
     vi.stubGlobal("fetch", fetchImpl);
 
-    const result = await getProjects({ limit: 10, offset: 0 });
+    const result = await getProjects({ limit: 10, offset: 0, sessionKey: "session-a" });
 
     expect(fetchImpl).toHaveBeenCalledOnce();
     expect(fetchImpl.mock.calls[0]?.[0]).toContain("/accounts/account-123/projects");
     expect(
       (fetchImpl.mock.calls[0]?.[1] as RequestInit).headers as Record<string, string>
     ).toMatchObject({
-      Authorization: "Bearer access-token",
+      Authorization: "Bearer session-token",
       Region: "EMEA"
     });
     expect(result.results[0]).toMatchObject({
@@ -104,6 +113,15 @@ describe("accAdmin service", () => {
   });
 
   it("calls the project users endpoint and normalizes user data", async () => {
+    await defaultTokenCache.set("session-users", {
+      accessToken: "users-token",
+      refreshToken: "refresh-token",
+      tokenType: "Bearer",
+      scope: ["data:read", "account:read"],
+      obtainedAt: Date.now(),
+      expiresAt: Date.now() + 300_000
+    });
+
     const fetchImpl = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -136,13 +154,15 @@ describe("accAdmin service", () => {
       projectId: "b.project-1",
       limit: 10,
       offset: 0,
-      region: "US"
+      region: "US",
+      sessionKey: "session-users"
     });
 
     expect(fetchImpl.mock.calls[0]?.[0]).toContain("/projects/project-1/users");
     expect(
       (fetchImpl.mock.calls[0]?.[1] as RequestInit).headers as Record<string, string>
     ).toMatchObject({
+      Authorization: "Bearer users-token",
       Region: "US"
     });
     expect(result.results[0]).toMatchObject({

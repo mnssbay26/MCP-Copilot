@@ -3,7 +3,12 @@ import {
   APS_BIM360_ASSETS_V2_BASE_URL
 } from "../shared/aps/endpoints.js";
 import { requestApsJson } from "../shared/aps/client.js";
-import { buildSummaryCounts, matchesFilterValue, matchesSearchTerm } from "../shared/mcp/reporting.js";
+import {
+  buildCollectionRetrievalMeta,
+  buildSummaryCounts,
+  matchesFilterValue,
+  matchesSearchTerm
+} from "../shared/mcp/reporting.js";
 import type { ToolWarning } from "../shared/mcp/toolResult.js";
 import {
   extractListRecords,
@@ -61,6 +66,11 @@ interface AssetContext {
   filtersApplied: AssetsFilters;
   assets: NormalizedAsset[];
   warnings: ToolWarning[];
+  retrieval: {
+    totalFetched: number;
+    pageCount: number;
+    sourceTruncated: boolean;
+  };
   meta: {
     source: string;
     generatedAt: string;
@@ -344,13 +354,20 @@ async function fetchAssetList(
   sessionKey: string | undefined,
   query: string | undefined,
   includeCustomAttributes: boolean
-): Promise<{ records: RawAsset[]; warnings: ToolWarning[] }> {
+): Promise<{
+  records: RawAsset[];
+  warnings: ToolWarning[];
+  pageCount: number;
+  sourceTruncated: boolean;
+}> {
   const records: RawAsset[] = [];
   const warnings: ToolWarning[] = [];
   let cursorState: string | undefined;
   const seenCursorStates = new Set<string>();
+  let pageCount = 0;
 
   for (let pageIndex = 0; pageIndex < MAX_ASSET_PAGE_FETCHES; pageIndex += 1) {
+    pageCount += 1;
     const url = new URL(
       `${APS_BIM360_ASSETS_V2_BASE_URL}/projects/${encodeURIComponent(projectId)}/assets`
     );
@@ -389,7 +406,7 @@ async function fetchAssetList(
       (nextCursor ? true : extracted.records.length >= ASSET_PAGE_LIMIT);
 
     if (!hasMore) {
-      return { records, warnings };
+      return { records, warnings, pageCount, sourceTruncated: false };
     }
 
     if (!nextCursor || seenCursorStates.has(nextCursor)) {
@@ -398,7 +415,7 @@ async function fetchAssetList(
         message:
           "Stopped reading additional asset pages because the cursor pagination state could not be advanced safely."
       });
-      return { records, warnings };
+      return { records, warnings, pageCount, sourceTruncated: true };
     }
 
     seenCursorStates.add(nextCursor);
@@ -409,7 +426,7 @@ async function fetchAssetList(
     code: "asset_page_fetch_limit_reached",
     message: `Stopped after ${MAX_ASSET_PAGE_FETCHES} asset pages to keep the response bounded.`
   });
-  return { records, warnings };
+  return { records, warnings, pageCount, sourceTruncated: true };
 }
 
 async function fetchAssetMetadataList<TRecord extends Record<string, unknown>>(
@@ -579,12 +596,12 @@ async function loadAssetContext(input: {
     input.includeCustomAttributes || (filters.attributeNames && filters.attributeNames.length > 0)
   );
 
-  const [{ records: rawAssets, warnings: assetWarnings }, categoriesResult, statusesResult] =
-    await Promise.all([
-      fetchAssetList(projectId, input.sessionKey, filters.query, includeCustomAttributes),
-      fetchCategories(projectId, input.sessionKey),
-      fetchStatuses(projectId, input.sessionKey)
-    ]);
+  const [assetListResult, categoriesResult, statusesResult] = await Promise.all([
+    fetchAssetList(projectId, input.sessionKey, filters.query, includeCustomAttributes),
+    fetchCategories(projectId, input.sessionKey),
+    fetchStatuses(projectId, input.sessionKey)
+  ]);
+  const { records: rawAssets, warnings: assetWarnings } = assetListResult;
 
   const warnings = [
     ...assetWarnings,
@@ -643,6 +660,11 @@ async function loadAssetContext(input: {
     filtersApplied: filters,
     assets: filteredAssets,
     warnings: [...warnings, ...userEnricher.warnings],
+    retrieval: {
+      totalFetched: rawAssets.length,
+      pageCount: assetListResult.pageCount,
+      sourceTruncated: assetListResult.sourceTruncated
+    },
     meta: {
       source: SOURCE,
       generatedAt: new Date().toISOString(),
@@ -679,6 +701,11 @@ export async function getAssetsSummary(input: {
       assignedGroups: breakdowns.byAssignedTo.length
     },
     results: breakdowns,
+    retrieval: buildCollectionRetrievalMeta({
+      totalFetched: context.retrieval.totalFetched,
+      pageCount: context.retrieval.pageCount,
+      sourceTruncated: context.retrieval.sourceTruncated
+    }),
     filtersApplied: context.filtersApplied,
     meta: {
       ...context.meta,
@@ -705,6 +732,11 @@ export async function getAssetsByCategory(input: {
       distinctGroups: results.length
     },
     results,
+    retrieval: buildCollectionRetrievalMeta({
+      totalFetched: context.retrieval.totalFetched,
+      pageCount: context.retrieval.pageCount,
+      sourceTruncated: context.retrieval.sourceTruncated
+    }),
     filtersApplied: context.filtersApplied,
     meta: {
       ...context.meta,
@@ -731,6 +763,11 @@ export async function getAssetsByStatus(input: {
       distinctGroups: results.length
     },
     results,
+    retrieval: buildCollectionRetrievalMeta({
+      totalFetched: context.retrieval.totalFetched,
+      pageCount: context.retrieval.pageCount,
+      sourceTruncated: context.retrieval.sourceTruncated
+    }),
     filtersApplied: context.filtersApplied,
     meta: {
       ...context.meta,
@@ -769,6 +806,13 @@ export async function getAssetsReport(input: {
     },
     results,
     breakdowns,
+    retrieval: buildCollectionRetrievalMeta({
+      totalFetched: context.retrieval.totalFetched,
+      pageCount: context.retrieval.pageCount,
+      sourceTruncated: context.retrieval.sourceTruncated,
+      rowsAvailable: context.assets.length,
+      rowsReturned: results.length
+    }),
     availableCustomAttributes: context.availableCustomAttributes,
     filtersApplied: {
       ...context.filtersApplied,

@@ -10,6 +10,7 @@ import {
   toRecord,
   toStringValue
 } from "../shared/mcp/listUtils.js";
+import { buildCollectionRetrievalMeta } from "../shared/mcp/reporting.js";
 import type { ToolWarning } from "../shared/mcp/toolResult.js";
 import type {
   DataManagementPaginationInput,
@@ -722,6 +723,8 @@ export async function findModelFiles(input: {
     sessionKey: input.sessionKey
   });
   warnings.push(...topFolders.warnings);
+  let pagesVisited = 0;
+  let sourceTruncated = false;
 
   const visitedFolderIds = new Set<string>();
   const discoveredFiles: ModelFileSearchResultItem[] = [];
@@ -747,12 +750,14 @@ export async function findModelFiles(input: {
         message:
           `Stopped after visiting ${traversal.maxFoldersVisited} folders to keep the search bounded.`
       });
+      sourceTruncated = true;
       break;
     }
 
     visitedFolderIds.add(current.folderId);
 
     for (let pageNumber = 0; pageNumber < traversal.maxPagesPerFolder; pageNumber += 1) {
+      pagesVisited += 1;
       const page = await fetchFolderContentsPage({
         projectId,
         folderId: current.folderId,
@@ -805,6 +810,7 @@ export async function findModelFiles(input: {
             code: "model_file_results_truncated",
             message: `Returned the first ${traversal.maxResults} matching model files to keep the search concise.`
           });
+          sourceTruncated = true;
           break traversalLoop;
         }
       }
@@ -819,6 +825,7 @@ export async function findModelFiles(input: {
           message:
             `Stopped after ${traversal.maxPagesPerFolder} pages for folder ${current.folderId} to keep the search bounded.`
         });
+        sourceTruncated = true;
       }
     }
   }
@@ -831,6 +838,13 @@ export async function findModelFiles(input: {
       extensionsMatched: extensions.length
     },
     results: discoveredFiles,
+    retrieval: buildCollectionRetrievalMeta({
+      totalFetched: discoveredFiles.length,
+      pageCount: pagesVisited,
+      sourceTruncated,
+      rowsAvailable: discoveredFiles.length,
+      rowsReturned: discoveredFiles.length
+    }),
     filtersApplied: {
       extensions,
       traversal

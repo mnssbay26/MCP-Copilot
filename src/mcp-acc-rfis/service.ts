@@ -1,6 +1,11 @@
 import { requestApsJson } from "../shared/aps/client.js";
 import { APS_CONSTRUCTION_RFIS_BASE_URL } from "../shared/aps/endpoints.js";
-import { buildSummaryCounts, matchesFilterValue, matchesSearchTerm } from "../shared/mcp/reporting.js";
+import {
+  buildCollectionRetrievalMeta,
+  buildSummaryCounts,
+  matchesFilterValue,
+  matchesSearchTerm
+} from "../shared/mcp/reporting.js";
 import type { ToolWarning } from "../shared/mcp/toolResult.js";
 import {
   extractListRecords,
@@ -52,6 +57,11 @@ interface RfiContext {
   rfis: NormalizedRfi[];
   availableCustomAttributes: string[];
   warnings: ToolWarning[];
+  retrieval: {
+    totalFetched: number;
+    pageCount: number;
+    sourceTruncated: boolean;
+  };
   meta: {
     source: string;
     generatedAt: string;
@@ -236,12 +246,19 @@ async function fetchRfiList(
   projectId: string,
   filters: RfisFilters,
   sessionKey?: string
-): Promise<{ records: RawRfi[]; warnings: ToolWarning[] }> {
+): Promise<{
+  records: RawRfi[];
+  warnings: ToolWarning[];
+  pageCount: number;
+  sourceTruncated: boolean;
+}> {
   const records: RawRfi[] = [];
   const warnings: ToolWarning[] = [];
   let offset = 0;
+  let pageCount = 0;
 
   for (let pageIndex = 0; pageIndex < MAX_RFI_PAGE_FETCHES; pageIndex += 1) {
+    pageCount += 1;
     const url = new URL(
       `${APS_CONSTRUCTION_RFIS_BASE_URL}/projects/${encodeURIComponent(projectId)}/search:rfis`
     );
@@ -269,7 +286,7 @@ async function fetchRfiList(
     warnings.push(...extracted.warnings);
 
     if (extracted.records.length === 0) {
-      return { records, warnings };
+      return { records, warnings, pageCount, sourceTruncated: false };
     }
 
     records.push(...extracted.records);
@@ -282,7 +299,7 @@ async function fetchRfiList(
         : extracted.records.length > 0;
 
     if (!hasMore || extracted.records.length === 0) {
-      return { records, warnings };
+      return { records, warnings, pageCount, sourceTruncated: false };
     }
 
     const advancedOffset = nextOffset ?? offset + extracted.records.length;
@@ -292,7 +309,7 @@ async function fetchRfiList(
         message:
           "Stopped reading additional RFI pages because the offset could not be advanced safely."
       });
-      return { records, warnings };
+      return { records, warnings, pageCount, sourceTruncated: true };
     }
 
     offset = advancedOffset;
@@ -302,7 +319,7 @@ async function fetchRfiList(
     code: "rfi_page_fetch_limit_reached",
     message: `Stopped after ${MAX_RFI_PAGE_FETCHES} RFI pages to keep the response bounded.`
   });
-  return { records, warnings };
+  return { records, warnings, pageCount, sourceTruncated: true };
 }
 
 async function fetchRfiTypes(
@@ -468,6 +485,11 @@ async function loadRfiContext(input: {
       a.localeCompare(b)
     ),
     warnings: [...warnings, ...userEnricher.warnings],
+    retrieval: {
+      totalFetched: rfiResult.records.length,
+      pageCount: rfiResult.pageCount,
+      sourceTruncated: rfiResult.sourceTruncated
+    },
     meta: {
       source: SOURCE,
       generatedAt: new Date().toISOString(),
@@ -527,6 +549,11 @@ export async function getRfisSummary(input: {
       agingBucketsTracked: breakdowns.byAging.length
     },
     results: breakdowns,
+    retrieval: buildCollectionRetrievalMeta({
+      totalFetched: context.retrieval.totalFetched,
+      pageCount: context.retrieval.pageCount,
+      sourceTruncated: context.retrieval.sourceTruncated
+    }),
     filtersApplied: context.filtersApplied,
     meta: {
       ...context.meta,
@@ -550,6 +577,11 @@ export async function getRfisByType(input: {
       distinctGroups: results.length
     },
     results,
+    retrieval: buildCollectionRetrievalMeta({
+      totalFetched: context.retrieval.totalFetched,
+      pageCount: context.retrieval.pageCount,
+      sourceTruncated: context.retrieval.sourceTruncated
+    }),
     filtersApplied: context.filtersApplied,
     meta: {
       ...context.meta,
@@ -588,6 +620,13 @@ export async function getRfisReport(input: {
     },
     results,
     breakdowns,
+    retrieval: buildCollectionRetrievalMeta({
+      totalFetched: context.retrieval.totalFetched,
+      pageCount: context.retrieval.pageCount,
+      sourceTruncated: context.retrieval.sourceTruncated,
+      rowsAvailable: context.rfis.length,
+      rowsReturned: results.length
+    }),
     availableCustomAttributes: context.availableCustomAttributes,
     filtersApplied: {
       ...context.filtersApplied,
@@ -632,6 +671,13 @@ export async function findRfis(input: {
       typesTracked: breakdowns.byType.length
     },
     results,
+    retrieval: buildCollectionRetrievalMeta({
+      totalFetched: context.retrieval.totalFetched,
+      pageCount: context.retrieval.pageCount,
+      sourceTruncated: context.retrieval.sourceTruncated,
+      rowsAvailable: context.rfis.length,
+      rowsReturned: results.length
+    }),
     filtersApplied: {
       ...(context.filtersApplied.query ? { query: context.filtersApplied.query } : {})
     },

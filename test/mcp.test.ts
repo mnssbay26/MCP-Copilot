@@ -10,6 +10,20 @@ import { registerAccTransmittalsTools } from "../src/mcp-acc-transmittals/tools.
 import { registerApsViewerTools } from "../src/mcp-aps-viewer/tools.js";
 import { registerDataManagementTools } from "../src/mcp-data-management/tools.js";
 
+function getRegisteredTools(registerTools: (server: never) => void) {
+  const registerTool = vi.fn();
+  const server = {
+    registerTool
+  };
+
+  registerTools(server as never);
+
+  return registerTool.mock.calls.map((call) => ({
+    name: call[0] as string,
+    config: call[1] as { inputSchema?: Record<string, unknown> }
+  }));
+}
+
 describe("registerTools", () => {
   it("registers the account-admin tools", () => {
     const registerTool = vi.fn();
@@ -160,5 +174,33 @@ describe("registerTools", () => {
       "build_viewer_payload_from_search",
       "build_viewer_payload_from_version"
     ]);
+  });
+
+  it("adds sessionKey to every 3-legged tool schema and keeps project companies app-context only", () => {
+    const registrars = [
+      registerAccAccountAdminTools,
+      registerAccIssuesTools,
+      registerAccAssetsTools,
+      registerAccSheetsTools,
+      registerAccRfisTools,
+      registerAccSubmittalsTools,
+      registerAccFormsTools,
+      registerAccTransmittalsTools,
+      registerDataManagementTools,
+      registerApsViewerTools
+    ];
+
+    const tools = registrars.flatMap((registerTools) => getRegisteredTools(registerTools));
+    const threeLeggedToolNames = tools
+      .map((tool) => tool.name)
+      .filter((name) => name !== "get_project_companies");
+
+    for (const toolName of threeLeggedToolNames) {
+      const tool = tools.find((candidate) => candidate.name === toolName);
+      expect(tool?.config.inputSchema).toHaveProperty("sessionKey");
+    }
+
+    const projectCompanies = tools.find((tool) => tool.name === "get_project_companies");
+    expect(projectCompanies?.config.inputSchema).not.toHaveProperty("sessionKey");
   });
 });

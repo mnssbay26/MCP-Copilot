@@ -1,5 +1,8 @@
 import type { ApsListEnvelope } from "../shared/aps/models.js";
-import type { SummaryCount } from "../shared/mcp/reporting.js";
+import type {
+  CollectionRetrievalMeta,
+  SummaryCount
+} from "../shared/mcp/reporting.js";
 import type { ToolWarning } from "../shared/mcp/toolResult.js";
 
 export interface RawSheet extends Record<string, unknown> {
@@ -30,6 +33,7 @@ export interface SheetsFindResult {
     returnedRows: number;
   };
   results: SheetLookupItem[];
+  retrieval: CollectionRetrievalMeta;
   filtersApplied: {
     discipline?: string;
     query?: string;
@@ -50,6 +54,7 @@ export interface SheetsSummaryResult {
     linkReadySheets: number;
   };
   results: SummaryCount[];
+  retrieval: CollectionRetrievalMeta;
   meta: {
     tool: string;
     source: string;

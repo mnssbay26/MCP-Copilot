@@ -115,7 +115,10 @@ describe("forms service", () => {
     vi.stubGlobal("fetch", fetchImpl);
 
     const result = await getFormsSummary({
-      projectId: "b.project-1"
+      projectId: "b.project-1",
+      filters: {
+        query: "safety"
+      }
     });
 
     expect(result.summary.totalForms).toBe(1);
@@ -129,6 +132,11 @@ describe("forms service", () => {
     expect(result.results.byTemplateName[0]).toMatchObject({
       label: "Safety Walk",
       count: 1
+    });
+    expect(result.retrieval).toMatchObject({
+      totalFetched: 2,
+      pageCount: 1,
+      truncated: false
     });
   });
 
@@ -153,6 +161,12 @@ describe("forms service", () => {
 
     expect(report.summary.totalForms).toBe(2);
     expect(report.summary.reportRows).toBe(1);
+    expect(report.retrieval).toMatchObject({
+      totalFetched: 2,
+      pageCount: 1,
+      rowsTruncated: true,
+      truncated: true
+    });
     expect(report.results[0]).toEqual({
       formName: "Level 2 Safety Walk",
       reference: "FORM-001",
@@ -168,6 +182,11 @@ describe("forms service", () => {
       formName: "Archived Daily Log 12",
       templateName: "Archived Daily Log",
       templateType: "Daily Log"
+    });
+    expect(lookup.retrieval).toMatchObject({
+      totalFetched: 2,
+      pageCount: 1,
+      truncated: false
     });
   });
 });

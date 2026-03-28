@@ -1,5 +1,8 @@
 import type { ApsListEnvelope } from "../shared/aps/models.js";
-import type { SummaryCount } from "../shared/mcp/reporting.js";
+import type {
+  CollectionRetrievalMeta,
+  SummaryCount
+} from "../shared/mcp/reporting.js";
 import type { ToolWarning } from "../shared/mcp/toolResult.js";
 
 export interface RawAsset extends Record<string, unknown> {
@@ -68,6 +71,7 @@ export interface AssetsSummaryResult {
     byStatus: SummaryCount[];
     byAssignedTo: SummaryCount[];
   };
+  retrieval: CollectionRetrievalMeta;
   filtersApplied: AssetsFilters;
   meta: {
     tool: string;
@@ -84,6 +88,7 @@ export interface AssetsBreakdownResult {
     distinctGroups: number;
   };
   results: SummaryCount[];
+  retrieval: CollectionRetrievalMeta;
   filtersApplied: AssetsFilters;
   meta: {
     tool: string;
@@ -107,6 +112,7 @@ export interface AssetsReportResult {
     byStatus: SummaryCount[];
     byAssignedTo: SummaryCount[];
   };
+  retrieval: CollectionRetrievalMeta;
   availableCustomAttributes: string[];
   filtersApplied: AssetsFilters;
   meta: {

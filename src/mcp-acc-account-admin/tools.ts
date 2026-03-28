@@ -3,20 +3,23 @@ import { z } from "zod";
 import { RegionSchema } from "../shared/config/env.js";
 import {
   ListPaginationInputSchemaShape,
-  ProjectIdSchema
+  ProjectIdSchema,
+  SessionKeySchema
 } from "../shared/mcp/sharedSchemas.js";
 import { toToolError, toToolResult } from "../shared/mcp/toolResult.js";
 import { getProjectCompanies, getProjects, getUsers } from "./service.js";
 
 const GetProjectsInputSchema = z.object({
   ...ListPaginationInputSchemaShape,
-  region: RegionSchema.optional().describe("Optional ACC region override.")
+  region: RegionSchema.optional().describe("Optional ACC region override."),
+  sessionKey: SessionKeySchema.optional()
 });
 
 const GetUsersInputSchema = z.object({
   projectId: ProjectIdSchema,
   ...ListPaginationInputSchemaShape,
-  region: RegionSchema.optional().describe("Optional ACC region override.")
+  region: RegionSchema.optional().describe("Optional ACC region override."),
+  sessionKey: SessionKeySchema.optional()
 });
 
 const GetProjectCompaniesInputSchema = z.object({
@@ -30,7 +33,7 @@ export function registerAccAccountAdminTools(server: McpServer): void {
     "get_projects",
     {
       title: "Get Projects",
-      description: "List ACC projects for the configured Autodesk account.",
+      description: "List ACC projects visible to the current Autodesk user session.",
       inputSchema: GetProjectsInputSchema.shape
     },
     async (args) => {
@@ -47,7 +50,7 @@ export function registerAccAccountAdminTools(server: McpServer): void {
     "get_users",
     {
       title: "Get Users",
-      description: "List project users for a specific ACC project.",
+      description: "List project users visible to the current Autodesk user session.",
       inputSchema: GetUsersInputSchema.shape
     },
     async (args) => {

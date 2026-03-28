@@ -362,6 +362,12 @@ describe("data management service", () => {
       latestVersionUrn: "urn:adsk.wipprod:fs.file:vf.campus?version=7",
       updatedBy: "Model Editor"
     });
+    expect(result.retrieval).toMatchObject({
+      totalFetched: 1,
+      pageCount: 1,
+      sourceTruncated: true,
+      truncated: true
+    });
     expect(result.warnings).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ code: "model_file_results_truncated" })

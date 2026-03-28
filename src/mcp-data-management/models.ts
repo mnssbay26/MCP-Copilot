@@ -1,3 +1,4 @@
+import type { CollectionRetrievalMeta } from "../shared/mcp/reporting.js";
 import type { ToolWarning } from "../shared/mcp/toolResult.js";
 
 export interface DataManagementPaginationInput {
@@ -177,6 +178,7 @@ export interface ModelFilesSearchResult {
     extensionsMatched: number;
   };
   results: ModelFileSearchResultItem[];
+  retrieval: CollectionRetrievalMeta;
   filtersApplied: {
     extensions: string[];
     traversal: Required<Pick<

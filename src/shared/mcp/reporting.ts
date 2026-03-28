@@ -4,6 +4,15 @@ export interface SummaryCount {
   percentage: number;
 }
 
+export interface CollectionRetrievalMeta {
+  totalFetched: number;
+  pageCount: number;
+  sourceTruncated: boolean;
+  rowsTruncated: boolean;
+  truncated: boolean;
+  safeLimitReached: boolean;
+}
+
 function normalizeComparisonValue(value: string): string {
   return value.trim().toLowerCase();
 }
@@ -87,4 +96,27 @@ export function buildSummaryCounts(
       percentage: total > 0 ? Number(((count / total) * 100).toFixed(1)) : 0
     }))
     .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label));
+}
+
+export function buildCollectionRetrievalMeta(input: {
+  totalFetched: number;
+  pageCount: number;
+  sourceTruncated?: boolean;
+  rowsAvailable?: number;
+  rowsReturned?: number;
+}): CollectionRetrievalMeta {
+  const sourceTruncated = Boolean(input.sourceTruncated);
+  const rowsTruncated =
+    input.rowsAvailable !== undefined &&
+    input.rowsReturned !== undefined &&
+    input.rowsAvailable > input.rowsReturned;
+
+  return {
+    totalFetched: Math.max(0, Math.trunc(input.totalFetched)),
+    pageCount: Math.max(0, Math.trunc(input.pageCount)),
+    sourceTruncated,
+    rowsTruncated,
+    truncated: sourceTruncated || rowsTruncated,
+    safeLimitReached: sourceTruncated || rowsTruncated
+  };
 }

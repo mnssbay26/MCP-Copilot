@@ -4,12 +4,7 @@ import { ProjectIdSchema, SessionKeySchema } from "../shared/mcp/sharedSchemas.j
 import { toToolError, toToolResult } from "../shared/mcp/toolResult.js";
 import { findForms, getFormsReport, getFormsSummary } from "./service.js";
 
-const FormsFiltersSchema = z.object({
-  query: z
-    .string()
-    .min(1)
-    .optional()
-    .describe("Optional search text to narrow forms by name, number, template, or status."),
+const FormsSharedFiltersSchema = z.object({
   statuses: z
     .array(z.string().min(1))
     .max(25)
@@ -38,6 +33,14 @@ const FormsFiltersSchema = z.object({
     .describe("Maximum number of form rows to include in the report.")
 });
 
+const FormsFiltersSchema = FormsSharedFiltersSchema.extend({
+  query: z
+    .string()
+    .min(1)
+    .optional()
+    .describe("Optional search text to narrow forms by name, number, template, or status.")
+});
+
 const FormsToolInputSchema = z.object({
   projectId: ProjectIdSchema,
   sessionKey: SessionKeySchema.optional(),
@@ -52,7 +55,7 @@ const FindFormsInputSchema = z.object({
     .optional()
     .describe("Optional search text for a form name, number, template, or status."),
   sessionKey: SessionKeySchema.optional(),
-  filters: FormsFiltersSchema.optional()
+  filters: FormsSharedFiltersSchema.optional()
 });
 
 export function registerAccFormsTools(server: McpServer): void {

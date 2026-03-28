@@ -1,6 +1,11 @@
 import { requestApsJson } from "../shared/aps/client.js";
 import { APS_CONSTRUCTION_TRANSMITTALS_BASE_URL } from "../shared/aps/endpoints.js";
-import { buildSummaryCounts, matchesFilterValue, matchesSearchTerm } from "../shared/mcp/reporting.js";
+import {
+  buildCollectionRetrievalMeta,
+  buildSummaryCounts,
+  matchesFilterValue,
+  matchesSearchTerm
+} from "../shared/mcp/reporting.js";
 import type { ToolWarning } from "../shared/mcp/toolResult.js";
 import {
   extractListRecords,
@@ -40,6 +45,11 @@ interface TransmittalContext {
   filtersApplied: TransmittalsFilters;
   items: NormalizedTransmittal[];
   warnings: ToolWarning[];
+  retrieval: {
+    totalFetched: number;
+    pageCount: number;
+    sourceTruncated: boolean;
+  };
   meta: {
     source: string;
     generatedAt: string;
@@ -198,11 +208,18 @@ function filterTransmittals(
 async function fetchPagedTransmittalList(
   projectId: string,
   sessionKey?: string
-): Promise<{ records: RawTransmittalRecord[]; warnings: ToolWarning[] }> {
+): Promise<{
+  records: RawTransmittalRecord[];
+  warnings: ToolWarning[];
+  pageCount: number;
+  sourceTruncated: boolean;
+}> {
   const warnings: ToolWarning[] = [];
   const records: RawTransmittalRecord[] = [];
+  let pageCount = 0;
 
   for (let pageIndex = 0; pageIndex < MAX_PAGE_FETCHES; pageIndex += 1) {
+    pageCount += 1;
     const offset = pageIndex * PAGE_LIMIT;
     const url = new URL(
       `${APS_CONSTRUCTION_TRANSMITTALS_BASE_URL}/projects/${encodeURIComponent(projectId)}/transmittals`
@@ -219,7 +236,7 @@ async function fetchPagedTransmittalList(
     records.push(...extracted.records);
 
     if (extracted.records.length < PAGE_LIMIT) {
-      return { records, warnings };
+      return { records, warnings, pageCount, sourceTruncated: false };
     }
   }
 
@@ -227,7 +244,7 @@ async function fetchPagedTransmittalList(
     code: "transmittal_page_fetch_limit_reached",
     message: `Stopped after ${MAX_PAGE_FETCHES} pages to keep the response bounded.`
   });
-  return { records, warnings };
+  return { records, warnings, pageCount, sourceTruncated: true };
 }
 
 async function loadTransmittalContext(input: {
@@ -259,6 +276,11 @@ async function loadTransmittalContext(input: {
     filtersApplied: filters,
     items: filterTransmittals(normalized, input.query?.trim() || undefined, filters),
     warnings: [...listResult.warnings, ...userEnricher.warnings],
+    retrieval: {
+      totalFetched: listResult.records.length,
+      pageCount: listResult.pageCount,
+      sourceTruncated: listResult.sourceTruncated
+    },
     meta: {
       source: SOURCE,
       generatedAt: new Date().toISOString(),
@@ -426,6 +448,11 @@ export async function getTransmittalsSummary(input: {
       byStatus,
       bySender
     },
+    retrieval: buildCollectionRetrievalMeta({
+      totalFetched: context.retrieval.totalFetched,
+      pageCount: context.retrieval.pageCount,
+      sourceTruncated: context.retrieval.sourceTruncated
+    }),
     filtersApplied: context.filtersApplied,
     meta: createMeta("get_transmittals_summary", context.meta.projectId),
     warnings: context.warnings
@@ -459,6 +486,13 @@ export async function findTransmittals(input: {
       senderGroupsTracked: bySender.length
     },
     results,
+    retrieval: buildCollectionRetrievalMeta({
+      totalFetched: context.retrieval.totalFetched,
+      pageCount: context.retrieval.pageCount,
+      sourceTruncated: context.retrieval.sourceTruncated,
+      rowsAvailable: context.items.length,
+      rowsReturned: results.length
+    }),
     filtersApplied: {
       ...(input.query?.trim() ? { query: input.query.trim() } : {}),
       ...(context.filtersApplied.statuses ? { statuses: context.filtersApplied.statuses } : {}),

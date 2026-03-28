@@ -1,5 +1,8 @@
 import type { ApsListEnvelope } from "../shared/aps/models.js";
-import type { SummaryCount } from "../shared/mcp/reporting.js";
+import type {
+  CollectionRetrievalMeta,
+  SummaryCount
+} from "../shared/mcp/reporting.js";
 import type { ToolWarning } from "../shared/mcp/toolResult.js";
 
 export interface RawTransmittalRecord extends Record<string, unknown> {
@@ -70,6 +73,7 @@ export interface TransmittalsSummaryResult {
     byStatus: SummaryCount[];
     bySender: SummaryCount[];
   };
+  retrieval: CollectionRetrievalMeta;
   filtersApplied: TransmittalsFilters;
   meta: {
     tool: string;
@@ -88,6 +92,7 @@ export interface FindTransmittalsResult {
     senderGroupsTracked: number;
   };
   results: TransmittalLookupItem[];
+  retrieval: CollectionRetrievalMeta;
   filtersApplied: {
     query?: string;
     statuses?: string[];

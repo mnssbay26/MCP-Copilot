@@ -12,7 +12,10 @@ import { registerDataManagementTools } from "../src/mcp-data-management/tools.js
 function getHandler(
   registerTools: (server: never) => void,
   toolName: string
-): (args: Record<string, unknown>) => Promise<{ isError?: boolean }> {
+): (args: Record<string, unknown>) => Promise<{
+  isError?: boolean;
+  content?: Array<{ text?: string }>;
+}> {
   const registerTool = vi.fn();
   const server = { registerTool };
   registerTools(server as never);
@@ -40,6 +43,21 @@ describe("domain tool validation", () => {
     const response = await handler({ projectId: "project-1" });
 
     expect(response.isError).toBe(true);
+    expect(response.content?.[0]?.text).toContain("Provide exactly one of sheetId or sheetNumber.");
+  });
+
+  it("rejects ambiguous sheet-link input", async () => {
+    const handler = getHandler(registerAccSheetsTools, "get_sheet_link");
+    const response = await handler({
+      projectId: "project-1",
+      sheetId: "sheet-1",
+      sheetNumber: "A101"
+    });
+
+    expect(response.isError).toBe(true);
+    expect(response.content?.[0]?.text).toContain(
+      "Provide exactly one of sheetId or sheetNumber, not both."
+    );
   });
 
   it("rejects invalid rfi input", async () => {
@@ -82,5 +100,20 @@ describe("domain tool validation", () => {
     const response = await handler({ projectId: "project-1" });
 
     expect(response.isError).toBe(true);
+    expect(response.content?.[0]?.text).toContain("Provide exactly one of versionId or versionUrn.");
+  });
+
+  it("rejects ambiguous viewer input", async () => {
+    const handler = getHandler(registerApsViewerTools, "build_viewer_payload_from_version");
+    const response = await handler({
+      projectId: "project-1",
+      versionId: "version-1",
+      versionUrn: "urn:example"
+    });
+
+    expect(response.isError).toBe(true);
+    expect(response.content?.[0]?.text).toContain(
+      "Provide exactly one of versionId or versionUrn, not both."
+    );
   });
 });

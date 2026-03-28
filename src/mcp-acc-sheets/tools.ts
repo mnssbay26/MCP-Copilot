@@ -39,8 +39,25 @@ const GetSheetLinkInputSchema = z
       .describe("Optional sheet number when you want to look up a published sheet link."),
     sessionKey: SessionKeySchema.optional()
   })
-  .refine((value) => Boolean(value.sheetId || value.sheetNumber), {
-    message: "Provide either sheetId or sheetNumber."
+  .superRefine((value, ctx) => {
+    const providedCount = [value.sheetId, value.sheetNumber].filter(Boolean).length;
+
+    if (providedCount === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Provide exactly one of sheetId or sheetNumber.",
+        path: ["sheetId"]
+      });
+      return;
+    }
+
+    if (providedCount > 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Provide exactly one of sheetId or sheetNumber, not both.",
+        path: ["sheetId"]
+      });
+    }
   });
 
 export function registerAccSheetsTools(server: McpServer): void {

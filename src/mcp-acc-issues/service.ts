@@ -69,6 +69,7 @@ export async function getIssues(input: {
   projectId: string;
   limit?: number;
   offset?: number;
+  sessionKey?: string;
 }): Promise<ListToolResult<IssueSummary>> {
   const projectId = stripBPrefix(input.projectId);
   const limit = clampLimit(input.limit);
@@ -81,11 +82,15 @@ export async function getIssues(input: {
   url.searchParams.set("offset", String(offset));
 
   const rawResponse = await requestApsJson<IssuesResponse>(url.toString(), {
-    serviceName: "mcpAccIssues.getIssues"
+    serviceName: "mcpAccIssues.getIssues",
+    sessionKey: input.sessionKey
   });
 
   const extracted = extractListRecords<RawIssue>(rawResponse);
-  const userEnricher = createProjectUserEnricher({ projectId });
+  const userEnricher = createProjectUserEnricher({
+    projectId,
+    sessionKey: input.sessionKey
+  });
   await userEnricher.prime(extracted.records.map((issue) => issue.assignedTo));
   const normalized = extracted.records
     .map((issue) => normalizeIssue(issue, userEnricher))

@@ -12,6 +12,8 @@ export type McpTool = {
     tools: McpTool[];
     resources: any[];
   };
+
+  //comment
   
   export const mcpManifest: McpManifest = {
     version: "1.0.0",

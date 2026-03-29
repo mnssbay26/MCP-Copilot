@@ -1,189 +1,127 @@
-# Autodesk MCP Server
+# Autodesk ACC/APS MCP Server
 
-## Project Overview
+## Purpose
 
-This repository contains an Autodesk MCP server foundation built in TypeScript for AWS deployment and future multi-MCP expansion. It preserves the current working Autodesk 3-legged OAuth flow, shared APS client, and initial ACC tools while reorganizing the codebase into clearer reusable and domain-specific boundaries.
+This repository hosts an Autodesk Platform Services MCP server used by Microsoft Copilot over MCP HTTP. The server is organized by Autodesk domain, keeps the Autodesk 3-legged OAuth flow working, and exposes read-only ACC/APS tools that favor concise summaries, bounded reports, and CSV artifacts over raw payload dumps.
 
-The current implementation supports:
+The existing `/auth/start` redirect pattern is a core part of the current deployment model and must remain intact.
 
-- Shared Autodesk 3-legged OAuth with PKCE
-- Shared Autodesk 2-legged app-context auth for selected account-admin read endpoints
-- Replaceable token and OAuth-state cache abstractions
-- A reusable APS HTTP client
-- Account admin / project-related MCP logic
-- Assets reporting MCP logic
-- Forms reporting MCP logic
-- Issues summary, report, and CSV export MCP logic
-- Sheets lookup, summary, report, and CSV export MCP logic
-- RFIs reporting MCP logic
-- Submittals reporting MCP logic
-- Transmittals summary, report, detail, and CSV export MCP logic
-- HTTP transport for ECS and stdio fallback for local MCP usage
+## Current Architecture
 
-## Architecture Overview
+- Runtime: Node.js and TypeScript
+- Primary transport: HTTP MCP on `POST /mcp`
+- Local fallback transport: stdio
+- Combined server entrypoint: `src/index.ts`
+- Shared infrastructure lives under `src/shared`
+- Each APS/ACC service domain lives in its own `src/mcp-*` folder
+- Shared helpers currently cover APS HTTP access, auth, user display-name enrichment, bounded retrieval metadata, and CSV artifact creation
 
-The repository is organized around reusable infrastructure and domain-specific MCP surfaces:
+## Active MCP Domains
 
-- `src/shared` contains reusable auth, config, APS client, tool output helpers, and transport bootstrapping.
-- `src/mcp-acc-account-admin` contains project, project-user, and project-company logic.
-- `src/mcp-acc-assets` contains read-only asset summaries and report logic.
-- `src/mcp-acc-forms` contains read-only forms summaries, lookup, and report logic.
-- `src/mcp-acc-issues` contains issues-specific logic.
-- `src/mcp-acc-rfis` contains read-only RFI summaries, filtered lookup, and report logic.
-- `src/mcp-acc-sheets` contains read-only sheet lookup, summary, and ACC-link logic.
-- `src/mcp-acc-submittals` contains read-only submittal summaries, filtered lookup, and report logic.
-- `src/index.ts` creates the combined server used by the current root runtime while preserving separation between MCP domains.
-
-## Folder Structure
-
-```text
-src/
-  shared/
-    aps/
-    auth/
-    bootstrap/
-    config/
-    mcp/
-    utils/
-  mcp-acc-account-admin/
-    index.ts
-    models.ts
-    server.ts
-    service.ts
-    tools.ts
-  mcp-acc-assets/
-    index.ts
-    models.ts
-    server.ts
-    service.ts
-    tools.ts
-  mcp-acc-forms/
-    index.ts
-    models.ts
-    server.ts
-    service.ts
-    tools.ts
-  mcp-acc-issues/
-    index.ts
-    models.ts
-    server.ts
-    service.ts
-    tools.ts
-  mcp-acc-rfis/
-    index.ts
-    models.ts
-    server.ts
-    service.ts
-    tools.ts
-  mcp-acc-sheets/
-    index.ts
-    models.ts
-    server.ts
-    service.ts
-    tools.ts
-  mcp-acc-submittals/
-    index.ts
-    models.ts
-    server.ts
-    service.ts
-    tools.ts
-  index.ts
-test/
-```
-
-## Environment Variables
-
-| Variable | Required | Description |
+| Domain | Status | Notes |
 | --- | --- | --- |
-| `APS_CLIENT_ID` | Yes | Autodesk APS OAuth client ID |
-| `APS_CLIENT_SECRET` | Yes | Autodesk APS OAuth client secret |
-| `APS_CALLBACK_URL` | Yes | Redirect URL registered with Autodesk for the 3-legged OAuth callback |
-| `APS_SCOPES` | Yes | Space-separated Autodesk OAuth scopes |
-| `APS_ACCOUNT_ID` | Yes | ACC account identifier used for account admin endpoints |
-| `APS_REGION` | No | Optional ACC region header override |
-| `PORT` | No | Optional HTTP port; defaults internally to `3000` |
-| `MCP_TRANSPORT` | No | Optional runtime transport override: `http` or `stdio` |
+| Auth | Active | Autodesk auth-start URL, auth status, and disconnect tools |
+| Account Admin | Active | Projects, project users, and app-context project companies |
+| Assets | Active | Summary and report tools |
+| Issues | Active | Legacy list plus summary, report, and CSV export |
+| Sheets | Active | Lookup, summary, report, and CSV export |
+| RFIs | Active | Summary, breakdown, lookup, report, and CSV export |
+| Submittals | Active | Summary, breakdown, lookup, report, and CSV export |
+| Forms | Active | Summary, lookup, report, and CSV export |
+| Transmittals | Active | Summary, lookup, report, detail, and CSV export |
+| Data Management | Active | Folder traversal, item lookup, versions, and model-file discovery |
+| APS Viewer Payload | Present but non-core | Payload-only helpers; not a supported Copilot viewer experience |
 
-Example values are in [`./.env.example`](./.env.example).
+The current tool contracts are frozen in [docs/tool-contracts.md](./docs/tool-contracts.md).
 
-## Autodesk 3-Legged OAuth Flow
+## Auth Model
 
-1. `GET /auth/url` creates an Autodesk authorization URL and stores temporary PKCE and OAuth state in the configured `OAuthStateStore`.
-2. The user authenticates with Autodesk and Autodesk redirects back to `APS_CALLBACK_URL`.
-3. `GET /auth/callback` exchanges the authorization code for Autodesk tokens.
-4. Tokens are normalized and cached through the shared `TokenCache`.
-5. MCP tools call `getValidAccessToken()` before APS API requests.
-6. If the access token is expired and a refresh token is available, the shared auth layer refreshes it automatically.
+### User-context auth
 
-## App-Context Auth
+Most tools use Autodesk 3-legged OAuth with PKCE and support an optional `sessionKey` so sessions can be isolated per user or workflow.
 
-The `get_project_companies` tool uses a separate shared 2-legged app-context token path under `src/shared/auth`. This flow is isolated from the existing 3-legged user/session token cache and requests only the minimal `account:read` scope needed for the current companies read endpoint.
+User-context auth routes:
 
-## Current Tools
+- `GET /auth/url`
+- `GET /auth/status`
+- `GET /auth/start`
+- `GET /auth/callback`
+- `GET /aps/callback`
 
-The server keeps the existing project and user tools and now standardizes these read-only ACC/Forma domains around a consistent `summary`, `report`, and `export_csv` pattern:
+Important behavior:
 
-- Issues: `get_issues_summary`, `get_issues_report`, `export_issues_csv`
-- RFIs: `get_rfis_summary`, `get_rfis_report`, `export_rfis_csv`
-- Submittals: `get_submittals_summary`, `get_submittals_report`, `export_submittals_csv`
-- Transmittals: `get_transmittals_summary`, `get_transmittals_report`, `export_transmittals_csv`
-- Sheets: `get_sheet_summary`, `get_sheets_summary`, `get_sheets_report`, `export_sheets_csv`
-- Forms: `get_forms_summary`, `get_forms_report`, `export_forms_csv`
+- `get_autodesk_auth_url` returns a backend `/auth/start` URL, not a raw Autodesk authorization URL
+- `/auth/start` performs the redirect to Autodesk
+- tokens and OAuth state are cached in memory today
 
-The earlier lookup tools such as `get_issues`, `find_forms`, `find_sheets`, `find_rfis`, `find_submittals`, `find_transmittals`, and `get_transmittal_details` remain available for narrower follow-up questions.
+### App-context auth
 
-These tools are read-only and return curated summary/report payloads instead of raw APS module dumps. The existing auth, projects, users, and issues behavior remains in place.
+`get_project_companies` intentionally uses a separate 2-legged app-context flow and does not accept `sessionKey`.
 
-## CSV Exports
+## Tool Output Pattern
 
-Use the `export_*_csv` tools when a chat summary or bounded report is not enough and you need the deeper-detail path.
+The repository now uses a few stable output styles:
 
-- Export tools fetch all relevant pages up to explicit safe limits.
-- They generate CSV files in backend application code.
-- They return artifact metadata such as `fileName`, `rowCount`, `truncated`, `downloadPath`, and `expiresAt` instead of sending CSV bodies inline in chat.
-- The current artifact implementation is an in-memory backend route intended for safe single-process use during this phase.
+- `summary`: concise counts and grouped breakdowns for Copilot chat
+- `report`: bounded detail rows plus summary counts, warnings, and retrieval metadata
+- `export_csv`: server-generated CSV artifact metadata, not inline CSV content
+- `lookup`: direct list or record retrieval for follow-up questions
+- `auth`: auth bootstrap/status/disconnect actions
 
-## First Deployment Scope
+Where implemented, report-style outputs expose bounded retrieval metadata through a `retrieval` object with fields such as:
 
-The first AWS deployment is intentionally limited:
+- `totalFetched`
+- `pageCount`
+- `sourceTruncated`
+- `rowsTruncated`
+- `truncated`
+- `safeLimitReached`
 
-- One ECS task only
-- In-memory token cache and OAuth-state cache
-- Initial validation target: Autodesk auth flow and `get_projects`
+Many read domains also enrich user references into display names when possible. By default, report-style domains avoid exposing email addresses. One important existing exception is `get_users`, which still returns email because that is part of its current contract.
 
-`get_users` and `get_issues` remain implemented and testable, but they are not the primary focus of the first deployment validation cycle.
+## CSV Artifacts
 
-## First Validation Flow
+The `export_*_csv` tools are the current "full pull / deeper detail" path when a chat summary is not enough.
 
-Use this sequence for the first deployment validation pass:
+- CSV files are generated in backend application code
+- tool responses return metadata such as `fileName`, `rowCount`, `truncated`, `downloadPath`, and `expiresAt`
+- the CSV body is not returned inline in chat
+- artifacts are currently served from `GET /artifacts/:artifactId`
 
-1. `npm run build`
-2. `npm test`
-3. `npm run start:http`
-4. Open `GET /auth/url`
-5. Complete the Autodesk login flow
-6. Open `GET /auth/status` and confirm `loggedIn=true`
-7. Run `npm run smoke:projects`
+The artifact store is in-memory and process-local. It is useful for the current single-process phase, but it is not a durable multi-instance export system.
 
-The first validation target is auth plus `get_projects` only. `get_users` and `get_issues` remain implemented, but they are not required for the initial deployment validation.
+## Viewer Scope
 
-Because the current token cache is in-memory, keep the HTTP server process running while you complete the auth flow and run `npm run smoke:projects`. The smoke script validates against the live server so it can reuse the same cached Autodesk session.
+APS Viewer embedding inside Microsoft Copilot chat is intentionally out of scope in the current repository.
 
-## Current Limitations
+- viewer payload tools, if present, are exploratory/internal helpers only
+- no Teams app viewer integration is being pursued here
+- no external HTML viewer hosting pattern is being promoted here
+- the repo does not currently treat viewer payloads as a core supported end-user experience
 
-- The in-memory `TokenCache` is not safe for multi-task ECS deployments.
-- The in-memory `OAuthStateStore` is not safe for distributed callback handling.
-- If the auth callback is routed to a different ECS task than the one that generated the auth URL, the OAuth flow can fail.
-- Restarting the ECS task clears cached tokens and pending OAuth state.
-- The current implementation assumes a single logical in-process session keyed as `default`.
+## HTTP Routes
 
-## Future Hardening Recommendations
+Primary routes:
 
-- Replace the in-memory token and OAuth-state caches with a shared backend such as Redis or DynamoDB.
-- Add multi-session handling instead of a single process-level session key.
-- Add distributed token refresh coordination for multi-instance deployments.
-- Prepare the callback flow and routing assumptions for multi-task ECS behind a load balancer.
-- Split deployments by MCP surface when the operational model requires separate account-admin and issues runtimes.
+- `GET /health`
+- `GET /auth/url`
+- `GET /auth/status`
+- `GET /auth/start`
+- `GET /auth/callback`
+- `GET /aps/callback`
+- `POST /mcp`
+- `GET /.well-known/mcp.json`
+- `GET /artifacts/:artifactId`
+- `GET /internal/smoke/projects`
+
+Legacy routes still present from earlier MCP exposure attempts:
+
+- `POST /mcp/tools/list`
+- `POST /mcp/resources/list`
+- `POST /mcp/tools/execute`
+- `POST /` JSON-RPC gateway
+
+These legacy routes remain in the repo, but they are not the recommended primary contract for current Copilot rollout work.
 
 ## Local Development
 
@@ -194,23 +132,48 @@ npm run typecheck
 npm test
 ```
 
-Run the combined server over HTTP:
+Run over HTTP:
 
 ```bash
 npm run start:http
 ```
 
-Run the combined server over stdio:
+Run over stdio:
 
 ```bash
 npm run start:stdio
 ```
 
-Useful HTTP routes:
+## Testing And Validation
 
-- `GET /health`
-- `GET /auth/url`
-- `GET /auth/status`
-- `GET /auth/callback`
-- `GET /artifacts/:artifactId`
-- `ALL /mcp`
+Current validation workflow:
+
+1. Run `npm run typecheck`
+2. Run `npm test`
+3. Start the server with `npm run start:http`
+4. Validate auth through `/auth/start` or `get_autodesk_auth_url`
+5. Confirm `/auth/status`
+6. Validate selected tools in Postman before broader rollout
+
+Recommended current practice is to use Postman for auth and tool smoke testing before expanding tenant usage inside Copilot.
+
+## Current Limitations
+
+- `TokenCache` is in-memory
+- OAuth state storage is in-memory
+- CSV/export artifacts are stored in-memory
+- artifact download paths are single-process only
+- the current server is not yet ready for durable multi-instance production operation
+- a restart clears cached auth state and export artifacts
+- some legacy MCP manifest/gateway files are still present and do not fully represent the combined server's current tool surface
+
+## Short-Term Engineering Reality
+
+This repository is currently optimized for:
+
+- preserving the working Autodesk auth flow
+- read-only ACC/APS retrieval
+- bounded Copilot-friendly outputs
+- cautious validation in local and Postman flows before broader rollout
+
+It is not yet a hardened distributed production platform for durable auth state, durable artifacts, or a supported Viewer-in-Copilot experience.
